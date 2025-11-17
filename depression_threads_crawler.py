@@ -5,7 +5,7 @@ import pandas as pd
 import langid
 import os
 from datetime import datetime,timedelta
-query_list=[ "沒意義","需要陪伴","撐不住","活著好痛苦","提不起勁","身心科","失眠","痛苦", "心悸","胸悶","疲憊","空虛","冷漠","恐慌","心理疾病","心情低落","內耗","孤獨", "絕望","不該存在","推薦心理諮商","活著好累","倒數離開人世","心情不好","想死", "負能量","吞藥","精神科","負面情緒","憂鬱","低落","悲傷","壓抑","壞情緒","好累", "再也撐不住","活不下去","坐立不安","抑鬱症","脆弱","敏感","情緒崩潰","記憶力變差" ]
+query_list=["沒意義","需要陪伴","撐不住","活著好痛苦","提不起勁","身心科","失眠","痛苦", "心悸","胸悶","疲憊","空虛","冷漠","恐慌","心理疾病","心情低落","內耗","孤獨", "絕望","不該存在","推薦心理諮商","活著好累","倒數離開人世","心情不好","想死", "負能量","吞藥","精神科","負面情緒","憂鬱","低落","悲傷","壓抑","壞情緒","好累", "再也撐不住","活不下去","坐立不安","抑鬱症","脆弱","敏感","情緒崩潰","記憶力變差" ]
 def save_to_excel(data,filename):
     df=pd.DataFrame(data)
     if os.path.exists(filename):
@@ -20,8 +20,6 @@ input()
 query_in_post=False
 for query in query_list:
     data_zh=[]
-    data_en=[]
-    data_else=[]
     driver.get(f'https://www.threads.com/search?q={query}')
     time.sleep(5)
     for _ in range(2):
@@ -67,10 +65,9 @@ for query in query_list:
                     print(f"跳過使用者：{username}（貼文不含關鍵字）")
                     continue
                 language,_=langid.classify(str(test_post_text)) if test_post_text else 'unknown'
-                if language=='zh':
-                    dataname=data_zh
-                else:
+                if language!='zh':
                     print(f"跳過使用者：{username}（語言非中文）")
+                    continue
                 driver.get(f'https://www.threads.com/@{username}')
                 time.sleep(5)
                 soup = BeautifulSoup(driver.page_source, 'html.parser')
@@ -90,6 +87,9 @@ for query in query_list:
                     print(f"跳過使用者：{username}（貼文數：{post_count}）")
                     continue
                 else:
+                    user_list=[]
+                    persent=0
+                    count=0
                     for post in user_posts:
                         post_text=''
                         created_at_element=post.find('time',class_="x1rg5ohu xnei2rj x2b8uid xuxw1ft")
@@ -98,7 +98,7 @@ for query in query_list:
                         date_part=date_part.replace("上午","AM").replace("下午","PM")
                         dt=datetime.strptime(date_part,"%Y年%m月%d日 %p%I:%M")
                         created_at=dt.strftime('%Y-%m-%d %H:%M')
-                        if test_dt - dt < timedelta(days=30):
+                        if timedelta(0) <= (test_dt - dt) <= timedelta(days=30):
                             body=post.find('div',class_="x1a6qonq x6ikm8r x10wlt62 xj0a0fe x126k92a x6prxxf x7r5mf7")
                             if body:
                                 span_texts=body.find_all('span')
@@ -111,7 +111,10 @@ for query in query_list:
                                 post_text='\n'.join(lines)
                         if post_text=='':
                             continue
-                        dataname.append({
+                        language,_=langid.classify(str(post_text)) if post_text else 'unknown'
+                        if language!='zh':
+                            count+=1
+                        user_list.append({
                             'username':username,
                             'display_name':display_name,
                             'post_content':post_text,
@@ -119,7 +122,10 @@ for query in query_list:
                             'bio':bio,
                             'matched_keyword':query,
                         })
-                        print('usercontent',username,display_name,post_text,created_at,bio,query)
+                    persent=count/post_count
+                    if persent<=0.5:
+                        for item in user_list:
+                            data_zh.append(item)
         except Exception as e:
             print(f"錯誤處理貼文:{e}")
             continue
