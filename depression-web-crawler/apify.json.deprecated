@@ -1,0 +1,8 @@
+{
+    "name": "depression-web-crawler",
+    "version": "0.0.1",
+    "actor": {
+        "kind": "python",
+        "buildTag": "latest"
+    }
+}

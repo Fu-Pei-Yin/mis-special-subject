@@ -1,0 +1,10 @@
+{
+  "name": "depression-web-crawler",
+  "version": "0.1",
+  "title": "Depression Web Crawler",
+  "description": "爬取 Threads 貼文並過濾中文負面情緒內容",
+  "buildTag": "latest",
+  "actor": {
+    "kind": "python"
+  }
+}
