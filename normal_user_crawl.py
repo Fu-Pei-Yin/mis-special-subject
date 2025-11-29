@@ -102,68 +102,70 @@ for _ in range(times):
 
             # ---- 進入使用者頁面 ----
             driver.get(f'https://www.threads.com/@{username}')
-            time.sleep(5)
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            for _ in range(3):
+                for _ in range(2):
+                    time.sleep(5)
+                    soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-            # ---- 使用者名稱 ----
-            div = soup.find('div', class_='xcrlgei')
-            h1 = div.find('h1') if div else None
-            display_name = h1.get_text(strip=True) if h1 else ""
+                # ---- 使用者名稱 ----
+                div = soup.find('div', class_='xcrlgei')
+                h1 = div.find('h1') if div else None
+                display_name = h1.get_text(strip=True) if h1 else ""
 
-            # ---- 自介 ----
-            intro_site = soup.find('div', class_='xw7yly9')
-            intro_tag = intro_site.find('span') if intro_site else None
-            bio = intro_tag.get_text(strip=True) if intro_tag else ""
+                # ---- 自介 ----
+                intro_site = soup.find('div', class_='xw7yly9')
+                intro_tag = intro_site.find('span') if intro_site else None
+                bio = intro_tag.get_text(strip=True) if intro_tag else ""
 
-            # ---- 滑動載入 ----
-            for _ in range(2):
-                driver.execute_script("window.scrollTo(0,document.body.scrollHeight);")
-                time.sleep(5)
+                # ---- 滑動載入 ----
+                for _ in range(2):
+                    driver.execute_script("window.scrollTo(0,document.body.scrollHeight);")
+                    time.sleep(5)
 
-            user_soup = BeautifulSoup(driver.page_source, 'html.parser')
-            user_posts = user_soup.find_all('div', class_="x78zum5 xdt5ytf")
-            post_count = len(user_posts)
-            if post_count < 3:
-                continue
-
-            user_list = []
-            count_non_zh = 0
-
-            # ---- 處理使用者每一則貼文 ----
-            for upost in user_posts:
-                created_el = upost.find('time', class_="x1rg5ohu xnei2rj x2b8uid xuxw1ft")
-                created_raw = created_el.get('title', '').strip() if created_el else None
-                dt = safe_parse_datetime(created_raw)
-                if not dt:
+                user_soup = BeautifulSoup(driver.page_source, 'html.parser')
+                user_posts = user_soup.find_all('div', class_="x78zum5 xdt5ytf")
+                post_count = len(user_posts)
+                if post_count < 3:
                     continue
 
-                post_text = ""
-                if timedelta(0) <= (test_dt - dt) <= timedelta(days=14):
-                    body = upost.find('div', class_="x1a6qonq x6ikm8r x10wlt62 xj0a0fe x126k92a x6prxxf x7r5mf7")
-                    post_text = safe_get_post_text(body) if body else ""
+                user_list = []
+                count_non_zh = 0
 
-                if post_text:
-                    lang = safe_lang_classify(post_text)
-                    if lang != 'zh':
-                        count_non_zh += 1
+                # ---- 處理使用者每一則貼文 ----
+                for upost in user_posts:
+                    created_el = upost.find('time', class_="x1rg5ohu xnei2rj x2b8uid xuxw1ft")
+                    created_raw = created_el.get('title', '').strip() if created_el else None
+                    dt = safe_parse_datetime(created_raw)
+                    if not dt:
+                        continue
 
-                    user_list.append({
-                        'username': username,
-                        'display_name': display_name,
-                        'post_content': post_text,
-                        'post_date': dt.strftime("%Y-%m-%d %H:%M"),
-                        'bio': bio
-                    })
+                    post_text = ""
+                    if timedelta(0) <= (test_dt - dt) <= timedelta(days=14):
+                        body = upost.find('div', class_="x1a6qonq x6ikm8r x10wlt62 xj0a0fe x126k92a x6prxxf x7r5mf7")
+                        post_text = safe_get_post_text(body) if body else ""
 
-            # ---- 中文比例判斷 ----
-            if count_non_zh / post_count <= 0.5:
-                sorted_user_list = sorted(
-                    user_list,
-                    key=lambda x: datetime.strptime(x['post_date'], "%Y-%m-%d %H:%M"),
-                    reverse=True
-                )
-                data_zh.extend(sorted_user_list)
-                print(username, display_name, post_count, f"非中文比例: {count_non_zh}/{post_count}")
+                    if post_text:
+                        lang = safe_lang_classify(post_text)
+                        if lang != 'zh':
+                            count_non_zh += 1
+
+                        user_list.append({
+                            'username': username,
+                            'display_name': display_name,
+                            'post_content': post_text,
+                            'post_date': dt.strftime("%Y-%m-%d %H:%M"),
+                            'bio': bio
+                        })
+
+                # ---- 中文比例判斷 ----
+                if count_non_zh / post_count <= 0.5:
+                    sorted_user_list = sorted(
+                        user_list,
+                        key=lambda x: datetime.strptime(x['post_date'], "%Y-%m-%d %H:%M"),
+                        reverse=True
+                    )
+                    data_zh.extend(sorted_user_list)
+                    print(username, display_name, post_count, f"非中文比例: {count_non_zh}/{post_count}")
 
         except Exception as e:
             print("錯誤處理貼文:", e)

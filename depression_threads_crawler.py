@@ -68,52 +68,53 @@ for query in query_list:
             intro_tag = intro_site.find('span') if intro_site else None
             bio = intro_tag.get_text(strip=True) if intro_tag else ''
             for _ in range(2):
-                driver.execute_script("window.scrollTo(0,document.body.scrollHeight);")
-                time.sleep(5)
-            user_soup = BeautifulSoup(driver.page_source,'html.parser')
-            user_posts = user_soup.find_all('div', class_="x78zum5 xdt5ytf")
-            post_count = len(user_posts)
-            if post_count < 3:
-                continue
-            user_list = []
-            count = 0
-            for post in user_posts:
-                post_text = ''
-                created_at_element = post.find('time', class_="x1rg5ohu xnei2rj x2b8uid xuxw1ft")
-                created_at = created_at_element.get('title','').strip() if created_at_element else 'unknown'
-                date_part = created_at.split(" ")[0] + " " + created_at.split(" ")[2]
-                date_part = date_part.replace("上午","AM").replace("下午","PM")
-                dt = datetime.strptime(date_part,"%Y年%m月%d日 %p%I:%M")
-                created_at = dt.strftime('%Y-%m-%d %H:%M')
-                if timedelta(0) <= (test_dt - dt) <= timedelta(days=14):
-                    body = post.find('div', class_="x1a6qonq x6ikm8r x10wlt62 xj0a0fe x126k92a x6prxxf x7r5mf7")
-                    if body:
-                        span_texts = body.find_all('span')
-                        lines = []
-                        for s in span_texts:
-                            text = s.get_text(strip=True)
-                            class_attr = s.get("class",[])
-                            if text and text != "翻譯" and "xeuugli" not in class_attr:
-                                lines.append(text)
-                        post_text = '\n'.join(lines)
-                if post_text:
-                    language,_ = langid.classify(str(post_text))
-                    if language != 'zh':
-                        count += 1
-                    user_list.append({
-                        'username': username,
-                        'display_name': display_name,
-                        'post_content': post_text,
-                        'post_date': created_at,
-                        'bio': bio,
-                        'matched_keyword': query,
-                    })
-            if count/post_count <= 0.5:
-                sorted_user_list = sorted(
-                    user_list,
-                    key=lambda x: datetime.strptime(x['post_date'], "%Y-%m-%d %H:%M")
-                )
-                data_zh.extend(sorted_user_list)
+                for _ in range(2):
+                    driver.execute_script("window.scrollTo(0,document.body.scrollHeight);")
+                    time.sleep(5)
+                user_soup = BeautifulSoup(driver.page_source,'html.parser')
+                user_posts = user_soup.find_all('div', class_="x78zum5 xdt5ytf")
+                post_count = len(user_posts)
+                if post_count < 3:
+                    continue
+                user_list = []
+                count = 0
+                for post in user_posts:
+                    post_text = ''
+                    created_at_element = post.find('time', class_="x1rg5ohu xnei2rj x2b8uid xuxw1ft")
+                    created_at = created_at_element.get('title','').strip() if created_at_element else 'unknown'
+                    date_part = created_at.split(" ")[0] + " " + created_at.split(" ")[2]
+                    date_part = date_part.replace("上午","AM").replace("下午","PM")
+                    dt = datetime.strptime(date_part,"%Y年%m月%d日 %p%I:%M")
+                    created_at = dt.strftime('%Y-%m-%d %H:%M')
+                    if timedelta(0) <= (test_dt - dt) <= timedelta(days=14):
+                        body = post.find('div', class_="x1a6qonq x6ikm8r x10wlt62 xj0a0fe x126k92a x6prxxf x7r5mf7")
+                        if body:
+                            span_texts = body.find_all('span')
+                            lines = []
+                            for s in span_texts:
+                                text = s.get_text(strip=True)
+                                class_attr = s.get("class",[])
+                                if text and text != "翻譯" and "xeuugli" not in class_attr:
+                                    lines.append(text)
+                            post_text = '\n'.join(lines)
+                    if post_text:
+                        language,_ = langid.classify(str(post_text))
+                        if language != 'zh':
+                            count += 1
+                        user_list.append({
+                            'username': username,
+                            'display_name': display_name,
+                            'post_content': post_text,
+                            'post_date': created_at,
+                            'bio': bio,
+                            'matched_keyword': query,
+                        })
+                if count/post_count <= 0.5:
+                    sorted_user_list = sorted(
+                        user_list,
+                        key=lambda x: datetime.strptime(x['post_date'], "%Y-%m-%d %H:%M")
+                    )
+                    data_zh.extend(sorted_user_list)
         except Exception as e:
             print(f"錯誤處理貼文: {e}")
             continue
