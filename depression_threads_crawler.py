@@ -67,7 +67,7 @@ for query in query_list:
             intro_site = soup.find('div', class_='xw7yly9')
             intro_tag = intro_site.find('span') if intro_site else None
             bio = intro_tag.get_text(strip=True) if intro_tag else ''
-            for _ in range(2):
+            for _ in range(3):
                 for _ in range(2):
                     driver.execute_script("window.scrollTo(0,document.body.scrollHeight);")
                     time.sleep(5)
