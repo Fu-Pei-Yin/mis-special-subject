@@ -6,6 +6,23 @@ import langid
 import os
 from datetime import datetime, timedelta
 query_list =["沒意義","需要陪伴","撐不住","活著好痛苦","提不起勁","身心科","失眠","心悸","胸悶","疲憊","活著好累","空虛","冷漠","恐慌","心理疾病","心情低落","內耗","孤獨","絕望","不該存在","推薦心理諮商","想死","精神科","負面情緒","憂鬱","悲傷","壓抑","坐立不安","脆弱","情緒崩潰","記憶力變差"]
+def safe_parse_datetime(date_text):
+    """安全解析 Threads 日期，避免 index error / format error"""
+    try:
+        parts = date_text.split(" ")
+        if len(parts) < 3:
+            return None
+
+        date_raw = parts[0]
+        time_raw = parts[2]
+
+        date_combined = f"{date_raw} {time_raw}"
+        date_combined = date_combined.replace("上午", "AM").replace("下午", "PM")
+
+        dt = datetime.strptime(date_combined, "%Y年%m月%d日 %p%I:%M")
+        return dt
+    except:
+        return None
 def save_to_excel(data, filename):
     df = pd.DataFrame(data)
     if os.path.exists(filename):
@@ -80,13 +97,15 @@ for query in query_list:
                 count = 0
                 for post in user_posts:
                     post_text = ''
-                    created_at_element = post.find('time', class_="x1rg5ohu xnei2rj x2b8uid xuxw1ft")
-                    created_at = created_at_element.get('title','').strip() if created_at_element else 'unknown'
-                    date_part = created_at.split(" ")[0] + " " + created_at.split(" ")[2]
-                    date_part = date_part.replace("上午","AM").replace("下午","PM")
-                    dt = datetime.strptime(date_part,"%Y年%m月%d日 %p%I:%M")
-                    created_at = dt.strftime('%Y-%m-%d %H:%M')
-                    if timedelta(0) <= (test_dt - dt) <= timedelta(days=14):
+                    created_at_el = post.find('time', class_="x1rg5ohu xnei2rj x2b8uid xuxw1ft")
+                    created_raw = created_at_el.get('title', '') if created_at_el else None
+
+                    dt = safe_parse_datetime(created_raw)
+                    if dt is None:
+                        continue
+
+                    # 時間篩選
+                    if (timedelta(0) <= (test_dt - dt) <= timedelta(days=14)):
                         body = post.find('div', class_="x1a6qonq x6ikm8r x10wlt62 xj0a0fe x126k92a x6prxxf x7r5mf7")
                         if body:
                             span_texts = body.find_all('span')
@@ -105,7 +124,7 @@ for query in query_list:
                             'username': username,
                             'display_name': display_name,
                             'post_content': post_text,
-                            'post_date': created_at,
+                            'post_date': dt.strftime("%Y-%m-%d %H:%M"),
                             'bio': bio,
                             'matched_keyword': query,
                         })
@@ -116,10 +135,11 @@ for query in query_list:
                         reverse=True
                     )
                     data_zh.extend(sorted_user_list)
+                    print(f"已蒐集使用者 @{username} 的貼文，共 {len(sorted_user_list)} 筆中文貼文")
         except Exception as e:
             print(f"錯誤處理貼文: {e}")
             continue
     save_to_excel(data_zh, 'threads_data_depression.xlsx')
     print(f"已處理關鍵字：{query}")
 driver.quit()
-os.startfile('threads_data_zh.xlsx')
+os.startfile('threads_data_depression.xlsx')

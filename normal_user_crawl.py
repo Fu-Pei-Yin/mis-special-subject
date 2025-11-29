@@ -174,4 +174,4 @@ for _ in range(times):
     save_to_excel(data_zh, 'threads_data_normal.xlsx')
 
 driver.quit()
-os.startfile('threads_data_normal_zh.xlsx')
+os.startfile('threads_data_normal.xlsx')
