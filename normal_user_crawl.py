@@ -171,7 +171,7 @@ for _ in range(times):
             print("錯誤處理貼文:", e)
             continue
 
-    save_to_excel(data_zh, 'threads_data_normal_zh.xlsx')
+    save_to_excel(data_zh, 'threads_data_normal.xlsx')
 
 driver.quit()
 os.startfile('threads_data_normal_zh.xlsx')

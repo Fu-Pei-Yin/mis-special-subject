@@ -112,13 +112,14 @@ for query in query_list:
                 if count/post_count <= 0.5:
                     sorted_user_list = sorted(
                         user_list,
-                        key=lambda x: datetime.strptime(x['post_date'], "%Y-%m-%d %H:%M")
+                        key=lambda x: datetime.strptime(x['post_date'], "%Y-%m-%d %H:%M"),
+                        reverse=True
                     )
                     data_zh.extend(sorted_user_list)
         except Exception as e:
             print(f"錯誤處理貼文: {e}")
             continue
-    save_to_excel(data_zh, 'threads_data_zh.xlsx')
+    save_to_excel(data_zh, 'threads_data_depression.xlsx')
     print(f"已處理關鍵字：{query}")
 driver.quit()
 os.startfile('threads_data_zh.xlsx')
