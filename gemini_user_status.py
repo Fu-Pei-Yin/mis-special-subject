@@ -208,7 +208,7 @@ for i in range(0, len(all_users), batch_size):
             print(f"→ API error，稍後補跑")
         else:
             df.loc[df["username"] == user, "gemini_user_status_label"] = result["gemini_user_status_label"]
-            df.loc[df["username"] == user, "gemini_symptom_counts"] = result["gemini_symptom_counts"]
+            # df.loc[df["username"] == user, "gemini_symptom_counts"] = result["gemini_symptom_counts"]
             print(f"→ 標註為 {result['gemini_user_status_label']}")
 
         time.sleep(random.uniform(1.5, 3))
@@ -239,7 +239,7 @@ if failed_users:
             result = classify_user_with_frequency(user_df)
             if result["gemini_user_status_label"] != "error":
                 df.loc[df["username"] == user, "gemini_user_status_label"] = result["gemini_user_status_label"]
-                df.loc[df["username"] == user, "gemini_symptom_counts"] = result["gemini_symptom_counts"]
+                # df.loc[df["username"] == user, "gemini_symptom_counts"] = result["gemini_symptom_counts"]
                 print(f"→ 標註為 {result['gemini_user_status_label']}")
                 success = True
                 print(f"→ 補跑成功：{result['gemini_user_status_label']}")
