@@ -12,19 +12,19 @@ MODEL = "gemini-2.5-flash"
 # 初始化Gemini API
 # ==========================================
 load_dotenv()
-API_KEY = os.getenv("GOOGLE_API_KEY")
+API_KEY = os.getenv("TEST3_GEMINI_KEY")
 client = genai.Client(api_key=API_KEY)
 
 # ==========================================
 # 載入資料
 # ==========================================
-df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
+df = pd.read_csv("account_type_result_normal.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 
 # ==========================================
 # 初始化欄位格式
 # ==========================================
-string_columns = ["gemini_user_status_label", "gemini_symptom_counts"]
+string_columns = ["gemini_user_status_label"]
 
 for col in string_columns:
     if col not in df.columns:
@@ -208,12 +208,11 @@ for i in range(0, len(all_users), batch_size):
             print(f"→ API error，稍後補跑")
         else:
             df.loc[df["username"] == user, "gemini_user_status_label"] = result["gemini_user_status_label"]
-            # df.loc[df["username"] == user, "gemini_symptom_counts"] = result["gemini_symptom_counts"]
             print(f"→ 標註為 {result['gemini_user_status_label']}")
 
         time.sleep(random.uniform(1.5, 3))
 
-    df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("user_status_label_normal.csv", index=False, encoding="utf-8-sig")
 
     if i + batch_size < len(all_users):
         batch_sleep = random.uniform(5, 10)
@@ -239,7 +238,6 @@ if failed_users:
             result = classify_user_with_frequency(user_df)
             if result["gemini_user_status_label"] != "error":
                 df.loc[df["username"] == user, "gemini_user_status_label"] = result["gemini_user_status_label"]
-                # df.loc[df["username"] == user, "gemini_symptom_counts"] = result["gemini_symptom_counts"]
                 print(f"→ 標註為 {result['gemini_user_status_label']}")
                 success = True
                 print(f"→ 補跑成功：{result['gemini_user_status_label']}")
@@ -254,7 +252,7 @@ if failed_users:
             print("→ 補跑仍失敗，標記為 API_error")
 
         time.sleep(random.uniform(1.5, 3))
-    df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("user_status_label_normal.csv", index=False, encoding="utf-8-sig")
 else:
     print("無需補跑API error之使用者")
 
