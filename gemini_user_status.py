@@ -6,24 +6,74 @@ import json
 import time
 import random
 
+# API 設定
 MODEL = "gemini-2.5-flash"
 
-# ==========================================
-# 初始化Gemini API
-# ==========================================
 load_dotenv()
-API_KEY = os.getenv("TEST3_GEMINI_KEY")
-client = genai.Client(api_key=API_KEY)
+# ==========================================
+# Multiple API Key Pool 設定
+# ==========================================
+API_KEYS = [
+    os.getenv("GOOGLE_API_KEY"),
+    os.getenv("PRO_API_KEY"),
+    os.getenv("MIS1_GEMINI_KEY"),
+    os.getenv("TEST2_GEMINI_KEY"),
+    os.getenv("TEST3_GEMINI_KEY"),
+    os.getenv("TEST4_GEMINI_KEY"),
+    os.getenv("MISEE_API_KEY"),
+    os.getenv("FU2_API_KEY"),
+    os.getenv("FU_API_KEY"),
+]
+
+current_key_index = 0
+
+# 過濾掉 None 或空白
+API_KEYS = [k for k in API_KEYS if k is not None and k.strip() != ""]
+
+if len(API_KEYS) == 0:
+    raise RuntimeError("無可用API Key，請檢查.env設定")
+
+key_cooldowns = {i: 0 for i in range(len(API_KEYS))}  # 每把key的下一次可使用時間
+
+def get_client_with_validation():
+    global current_key_index
+
+    for _ in range(len(API_KEYS)):
+        key = API_KEYS[current_key_index]
+        now = time.time()
+
+        # 若 key 在 cooldown 狀態 → Wait
+        if now < key_cooldowns[current_key_index]:
+            wait_time = key_cooldowns[current_key_index] - now
+            print(f"→ API Key #{current_key_index+1} 冷卻中，等待 {wait_time:.2f} 秒")
+            time.sleep(wait_time)
+
+        try:
+            client = genai.Client(api_key=key)
+            print(f"→ 使用API Key #{current_key_index+1}")
+            return client
+
+        except Exception:
+            print(f"!! API Key #{current_key_index+1} 初始化失敗 → 換下一把")
+            rotate_api_key()
+            time.sleep(1)
+
+    raise RuntimeError("所有API Key均無法初始化")
+
+def rotate_api_key():
+    global current_key_index
+    current_key_index = (current_key_index + 1) % len(API_KEYS)
+    print(f"→ 已切換至 API Key #{current_key_index + 1}")
+
+client = get_client_with_validation()
 
 # ==========================================
 # 載入資料
 # ==========================================
-df = pd.read_csv("account_type_result_normal.csv", encoding="utf-8-sig")
+df = pd.read_csv("user_status_label_depression.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
+df["username"] = df["username"].astype(str)
 
-# ==========================================
-# 初始化欄位格式
-# ==========================================
 string_columns = ["gemini_user_status_label"]
 
 for col in string_columns:
@@ -101,25 +151,47 @@ SYMPTOM_PROMPT_TEMPLATE = """
 請嚴格依照上述規則，輸出各症狀次數 JSON。
 """
 
+def call_gemini_with_rotation(prompt: str):
+    global client, current_key_index
+
+    for _ in range(len(API_KEYS)):
+        try:
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=prompt
+            )
+
+            # 成功 → 設定 cooldown
+            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
+            return response.text.strip()
+
+        except Exception as e:
+            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
+            print(f"!! API錯誤（key #{current_key_index+1}）：{e}")
+            rotate_api_key()
+            client = get_client_with_validation()
+
+    return None
+
 # 貼文層級頻率判定
 def calculate_frequency_label(per_post_flags, symptom_counts, total_posts):
     if total_posts == 0:
-        return "general_user", "無貼文", 0, symptom_counts
+        return "general_user", "無貼文", 0, 0.0, symptom_counts
 
     total_events = sum(1 for flag in per_post_flags if flag)
     event_ratio = total_events / total_posts
-    if event_ratio >= 0.50:
-        return "high_depression_risk_user", f"症狀貼文占比 {event_ratio:.0%} ≥50%", total_events, symptom_counts
-    elif event_ratio >= 0.25:
-        return "low_depression_risk_user", f"症狀貼文占比 {event_ratio:.0%} 介於25%–49%", total_events, symptom_counts
-    else:
-        return "non_depression_risk_user", f"症狀貼文占比 {event_ratio:.0%} <25%", total_events, symptom_counts
 
-# 呼叫Gemini API函式
-def classify_user_with_frequency(user_posts):
+    if event_ratio >= 0.50:
+        return "high_depression_risk_user", f"症狀貼文占比 {event_ratio:.0%} ≥50%", total_events, event_ratio, symptom_counts
+    elif event_ratio >= 0.25:
+        return "low_depression_risk_user", f"症狀貼文占比 {event_ratio:.0%} 介於25%–49%", total_events, event_ratio, symptom_counts
+    else:
+        return "non_depression_risk_user", f"症狀貼文占比 {event_ratio:.0%} <25%", total_events, event_ratio, symptom_counts
+
+def classify_user_status(user_posts: pd.DataFrame):
     posts_text = "\n".join(
-        [f"{row.post_date.date()}｜{row.post_content}"
-         for _, row in user_posts.iterrows()]
+        f"{row.post_date.date()}｜{row.post_content}"
+        for _, row in user_posts.iterrows()
     )
 
     prompt = SYMPTOM_PROMPT_TEMPLATE.format(
@@ -127,48 +199,48 @@ def classify_user_with_frequency(user_posts):
         posts=posts_text
     )
 
-    for retry in range(5):
-        try:
-            response = client.models.generate_content(
-                model=MODEL,
-                contents=prompt
-            )
-            resp_text = getattr(response, "text", "").strip()
-            cleaned = resp_text.replace("```json", "").replace("```", "").strip()
-            symptom_json = json.loads(cleaned)
-            symptom_counts = symptom_json.get("symptom_counts", {})
-            symptom_counts = {str(i): symptom_counts.get(str(i), 0) for i in range(1, 12)}
-            per_post_flags = symptom_json.get("post_flags", [])
+    raw = call_gemini_with_rotation(prompt)
+    if not raw:
+        return None
 
-            total_posts = len(user_posts)
+    cleaned = raw.replace("```json", "").replace("```", "").strip()
 
-            # 防止API漏回post_flags導致比例失真
-            if len(per_post_flags) != total_posts:
-                per_post_flags = per_post_flags + [False] * (total_posts - len(per_post_flags))
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        print("!! JSON 解析失敗")
+        return None
 
+    symptom_counts = {
+        str(i): data.get("symptom_counts", {}).get(str(i), 0)
+        for i in range(1, 12)
+    }
 
-            label, reason, total_events, symptom_counts = calculate_frequency_label(
-                per_post_flags, symptom_counts, total_posts
-            )
+    post_flags = data.get("post_flags", [])
+    total_posts = len(user_posts)
 
-            print(f"→ 事件數: {total_events}, 總發文數 {total_posts} , {reason}")
-            print(f"→ 症狀分布: {json.dumps(symptom_counts, ensure_ascii=False)}")
+    # 校正 post_flags 長度
+    if len(post_flags) < total_posts:
+        post_flags += [False] * (total_posts - len(post_flags))
+    else:
+        post_flags = post_flags[:total_posts]
 
-            return {
-                "gemini_user_status_label": label,
-                "gemini_symptom_counts": json.dumps(symptom_counts, ensure_ascii=False)
-            }
+    label, reason, total_events, symptom_counts = calculate_frequency_label(
+        post_flags, symptom_counts, total_posts
+    )
 
-        except Exception as e:
-            print(f"API error: {e}")
-            time.sleep(1 + retry)
+    print(f"→ 事件數: {total_events}, 總發文數: {total_posts}, {reason}")
+    print(f"→ 症狀分布: {json.dumps(symptom_counts, ensure_ascii=False)}")
 
-    return {"gemini_user_status_label": "error", "gemini_symptom_counts": "{}"}
+    return {
+        "label": label,
+        "symptom_counts": json.dumps(symptom_counts, ensure_ascii=False)
+    }
 
 # ==========================================
-# 主流程(批次分析)
+# 主流程
 # ==========================================
-batch_size = 10
+batch_size = 5
 df = df.dropna(subset=["username"])
 df = df[df["username"].astype(str).str.strip() != ""]
 df["username"] = df["username"].astype(str)
@@ -183,36 +255,31 @@ for i in range(0, len(all_users), batch_size):
         user_df = df[df["username"] == user]
         print(f"處理使用者：{user}")
 
-        if user_df.empty:
-            print(f"→ 無資料 username：{user} ，跳過")
-            continue
-
         # 已標註過 → 跳過(補跑)
         existing_labels = user_df["gemini_user_status_label"].dropna().astype(str).str.strip()
         if existing_labels.str.len().gt(0).any():
             print(f"→ 使用者已有標註（{existing_labels.iloc[0]}），略過")
             continue
 
-        # 根據帳號類型決定是否跳過
         acc_type = str(user_df.iloc[0].get("gemini_account_type_result", "")).lower()
-        SKIP_TYPES = {"not_enough_posts", "business", "non_life", "api_error", "", "nan"}
-        if acc_type in SKIP_TYPES:
+        if acc_type in {"not_enough_posts", "business", "non_life", "api_error", "", "nan"}:
             df.loc[df["username"] == user, "gemini_user_status_label"] = "skipped"
-            print(f"→ 帳號類型為 {acc_type} ，跳過分析")
+            print(f"→ 非可使用之帳號類型 {acc_type} ，跳過分析")
             continue
 
-        result = classify_user_with_frequency(user_df)
+        result = classify_user_status(user_df)
 
-        if result["gemini_user_status_label"] == "error":
+        if not result:
             failed_users.append(user)
             print(f"→ API error，稍後補跑")
+            continue
         else:
-            df.loc[df["username"] == user, "gemini_user_status_label"] = result["gemini_user_status_label"]
-            print(f"→ 標註為 {result['gemini_user_status_label']}")
+            df.loc[df["username"] == user, "gemini_user_status_label"] = result["label"]
+            print(f"→ 標註為 {result['label']}")
 
-        time.sleep(random.uniform(1.5, 3))
+        time.sleep(random.uniform(12, 15))
 
-    df.to_csv("user_status_label_normal.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
 
     if i + batch_size < len(all_users):
         batch_sleep = random.uniform(5, 10)
@@ -221,39 +288,25 @@ for i in range(0, len(all_users), batch_size):
     else:
         print("△ 最後一個batch完成！")
 
-# ==========================================
-# 補跑API_error使用者
-# ==========================================
+# 補跑流程
 if failed_users:
-    print(f"\n===== 補跑 {len(failed_users)} 個 API error 使用者 =====\n")
+    print(f"\n===== 補跑 {len(failed_users)} 位失敗使用者 =====\n")
     for user in failed_users:
         user_df = df[df["username"] == user]
         print(f"補跑使用者：{user}")
 
-        retry_count = 0
-        max_retry = 5
-        success = False
-
-        while retry_count < max_retry and not success:
-            result = classify_user_with_frequency(user_df)
-            if result["gemini_user_status_label"] != "error":
-                df.loc[df["username"] == user, "gemini_user_status_label"] = result["gemini_user_status_label"]
-                print(f"→ 標註為 {result['gemini_user_status_label']}")
-                success = True
-                print(f"→ 補跑成功：{result['gemini_user_status_label']}")
-            else:
-                retry_count += 1
-                wait_time = 2 ** retry_count
-                print(f"→ 補跑失敗 {retry_count}/{max_retry}，等待 {wait_time} 秒後重試...")
-                time.sleep(wait_time)
-
-        if not success:
-            df.loc[df["username"] == user, "gemini_user_status_label"] = "API_error"
+        result = classify_user_status(user_df)
+        if result:
+            df.loc[df["username"] == user, "gemini_user_status_label"] = result["label"]
+            print(f"→ 補跑成功：{result}")
+        else:
+            df.loc[df["username"] == user, "gemini_user_status_label"] = "api_error"
             print("→ 補跑仍失敗，標記為 API_error")
 
-        time.sleep(random.uniform(1.5, 3))
-    df.to_csv("user_status_label_normal.csv", index=False, encoding="utf-8-sig")
+        time.sleep(random.uniform(12, 15))
+
+    df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
 else:
     print("無需補跑API error之使用者")
 
-print("\n完成 user_status_label + symptom_counts 判定！")
+print("完成 user_status_label + symptom_counts 判定")

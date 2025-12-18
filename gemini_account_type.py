@@ -5,19 +5,71 @@ import time
 from google import genai
 import random
 
-# ==========================================
 # API 設定
-# ==========================================
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.5-flash"
 
 load_dotenv()
-API_KEY = os.getenv("GOOGLE_API_KEY")
-client = genai.Client(api_key=API_KEY)
+# ==========================================
+# Multiple API Key Pool 設定
+# ==========================================
+API_KEYS = [
+    os.getenv("GOOGLE_API_KEY"),
+    os.getenv("PRO_API_KEY"),
+    os.getenv("MIS1_GEMINI_KEY"),
+    os.getenv("TEST2_GEMINI_KEY"),
+    os.getenv("TEST3_GEMINI_KEY"),
+    os.getenv("TEST4_GEMINI_KEY"),
+    os.getenv("MISEE_API_KEY"),
+    os.getenv("FU2_API_KEY"),
+    os.getenv("FU_API_KEY"),
+]
+
+current_key_index = 0
+
+# 過濾掉 None 或空白
+API_KEYS = [k for k in API_KEYS if k is not None and k.strip() != ""]
+
+if len(API_KEYS) == 0:
+    raise RuntimeError("無可用 API Key，請檢查 .env 設定")
+
+key_cooldowns = {i: 0 for i in range(len(API_KEYS))}  # 每把key的下一次可使用時間
+
+def get_client_with_validation():
+    global current_key_index
+
+    for _ in range(len(API_KEYS)):
+        key = API_KEYS[current_key_index]
+        now = time.time()
+
+        # 若 key 在 cooldown 狀態 → Wait
+        if now < key_cooldowns[current_key_index]:
+            wait_time = key_cooldowns[current_key_index] - now
+            print(f"→ API Key #{current_key_index+1} 冷卻中，等待 {wait_time:.2f} 秒")
+            time.sleep(wait_time)
+
+        try:
+            client = genai.Client(api_key=key)
+            print(f"→ 使用 API Key #{current_key_index+1}")
+            return client
+
+        except Exception:
+            print(f"!! API Key #{current_key_index+1} 初始化失敗 → 換下一把")
+            rotate_api_key()
+            time.sleep(1)
+
+    raise RuntimeError("所有 API Key 均無法初始化")
+
+def rotate_api_key():
+    global current_key_index
+    current_key_index = (current_key_index + 1) % len(API_KEYS)
+    print(f"→ 已切換至 API Key #{current_key_index + 1}")
+
+client = get_client_with_validation()
 
 # ==========================================
 # 載入資料、初始化欄位
 # ==========================================
-df = pd.read_csv("threads_data_depression.csv", encoding="utf-8-sig") #若為重跑同csv，將檔名改為與結果相同之檔名
+df = pd.read_csv("threads_data_depression_1.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 
 string_columns = ["gemini_account_type_result"]
@@ -75,7 +127,7 @@ RULES = """
         ‧ 職場經驗分享
         ‧ 產業分析(如:股票、加密貨幣等)
         ‧ 學習資源分享(如:語言學習、技能提升等)
-        ‧ 知識性分享(如:科普、學術名詞介紹等)
+        ‧ 知識性分享(如:星座、科普、學術名詞介紹等)
         ‧ 看書／電影心得
         ‧ 各類不含個人生活與情緒抒發的文字創作(詩歌、小說、音樂推薦等)
 
@@ -107,6 +159,8 @@ Bio: {bio}
 
 # 呼叫API之函式
 def classify_user(profile_text):
+    global client, current_key_index
+
     prompt = f"""
 請依照以下完整條例進行帳號審查，並只輸出一個標籤。
 
@@ -118,18 +172,27 @@ def classify_user(profile_text):
 ------------------------------------
 {profile_text}
 """
-    for retry in range(5):
+
+    for _ in range(len(API_KEYS)):
         try:
             response = client.models.generate_content(
                 model=MODEL,
                 contents=prompt
             )
+
+            # 呼叫成功 → 設定此 key 的 cooldown
+            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
             return response.text.strip()
+
         except Exception:
-            wait_time = 2 ** retry  # 指數退避
-            print(f"!! API錯誤，等待 {wait_time} 秒重試... ({retry+1}/5)")
-            time.sleep(wait_time)
-    return None  # 若五次仍失敗 → 回 None
+            # API error → 給目前 key 一個冷卻時間（避免連續打死同一把）
+            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
+
+            print("!! API錯誤，切換下一把 API key 重試...")
+            rotate_api_key()
+            client = get_client_with_validation()
+
+    return None
 
 # ==========================================
 # 主流程（批次處理）
@@ -179,9 +242,9 @@ for i in range(0, len(all_users), batch_size):
             print(f"→ Gemini 判斷：{result}")
 
         processed += 1
-        time.sleep(random.uniform(2, 3))
+        time.sleep(random.uniform(12, 15))
 
-    df.to_csv("account_type_result_depression.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("account_type_result_depression_1.csv", index=False, encoding="utf-8-sig")
 
     if i + batch_size < len(all_users):
         batch_sleep = random.uniform(5, 10)
@@ -211,9 +274,9 @@ if failed_users:
             df.loc[df["username"] == user, "gemini_account_type_result"] = "API_error"
             print("→ 補跑仍失敗，標記為 API_error")
             
-        time.sleep(random.uniform(1.5, 3))
+        time.sleep(random.uniform(12, 15))
         
-    df.to_csv("account_type_result_depression.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("account_type_result_depression_1.csv", index=False, encoding="utf-8-sig")
 else:
     print("無需補跑API error之使用者")
 
