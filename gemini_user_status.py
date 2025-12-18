@@ -27,6 +27,8 @@ API_KEYS = [
 
 current_key_index = 0
 
+GLOBAL_BACKOFF_UNTIL = 0 # Global Backoff（503 專用）
+
 # 過濾掉 None 或空白
 API_KEYS = [k for k in API_KEYS if k is not None and k.strip() != ""]
 
@@ -42,23 +44,23 @@ def get_client_with_validation():
         key = API_KEYS[current_key_index]
         now = time.time()
 
-        # 若 key 在 cooldown 狀態 → Wait
+        # key-level cooldown
         if now < key_cooldowns[current_key_index]:
             wait_time = key_cooldowns[current_key_index] - now
-            print(f"→ API Key #{current_key_index+1} 冷卻中，等待 {wait_time:.2f} 秒")
+            print(f"→ API Key #{current_key_index+1} 冷卻中，等待 {wait_time:.1f}s")
             time.sleep(wait_time)
 
         try:
             client = genai.Client(api_key=key)
-            print(f"→ 使用API Key #{current_key_index+1}")
+            print(f"→ 使用 API Key #{current_key_index+1}")
             return client
 
-        except Exception:
-            print(f"!! API Key #{current_key_index+1} 初始化失敗 → 換下一把")
+        except Exception as e:
+            print(f"!! API Key #{current_key_index+1} 初始化失敗：{e}")
             rotate_api_key()
             time.sleep(1)
 
-    raise RuntimeError("所有API Key均無法初始化")
+    raise RuntimeError("所有 API Key 均無法初始化")
 
 def rotate_api_key():
     global current_key_index
@@ -70,7 +72,7 @@ client = get_client_with_validation()
 # ==========================================
 # 載入資料
 # ==========================================
-df = pd.read_csv("user_status_label_depression.csv", encoding="utf-8-sig")
+df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 df["username"] = df["username"].astype(str)
 
@@ -152,24 +154,55 @@ SYMPTOM_PROMPT_TEMPLATE = """
 """
 
 def call_gemini_with_rotation(prompt: str):
-    global client, current_key_index
+    global client, current_key_index, GLOBAL_BACKOFF_UNTIL
 
     for _ in range(len(API_KEYS)):
+        # ---------- Global Backoff（503） ----------
+        now = time.time()
+        if now < GLOBAL_BACKOFF_UNTIL:
+            sleep_time = GLOBAL_BACKOFF_UNTIL - now
+            print(f"⚠ 全域退避中，等待 {sleep_time:.1f}s")
+            time.sleep(sleep_time)
+
         try:
             response = client.models.generate_content(
                 model=MODEL,
                 contents=prompt
             )
 
-            # 成功 → 設定 cooldown
-            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
+            # 成功後設定 key-level cooldown（正常節奏控制）
+            key_cooldowns[current_key_index] = time.time() + random.uniform(18, 30)
             return response.text.strip()
 
         except Exception as e:
-            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
+            msg = str(e).lower()
             print(f"!! API錯誤（key #{current_key_index+1}）：{e}")
-            rotate_api_key()
-            client = get_client_with_validation()
+
+            # ---------- 503：模型過載 → 全域退避，不輪轉 ----------
+            if "503" in msg or "overloaded" in msg or "unavailable" in msg:
+                backoff = random.uniform(40, 90)
+                GLOBAL_BACKOFF_UNTIL = time.time() + backoff
+                print(f"⚠ 模型過載，啟動全域退避 {backoff:.1f}s")
+                continue  # 用同一把 key 再試
+
+            # ---------- 429：Quota / Rate limit → 立刻輪替 key ----------
+            if "429" in msg or "rate" in msg or "quota" in msg:
+                print(f"⚠ Key #{current_key_index+1} 額度用盡（429），立刻輪替")
+                rotate_api_key()
+                client = get_client_with_validation()
+                continue
+
+            # ---------- 401 / 403：Key 問題 → 輪轉 ----------
+            if "401" in msg or "403" in msg or "permission" in msg:
+                print(f"⚠ Key #{current_key_index+1} 權限錯誤，輪轉")
+                rotate_api_key()
+                client = get_client_with_validation()
+                continue
+
+            # ---------- 其他錯誤（網路/未知） ----------
+            print("⚠ 非預期錯誤，短暫等待後重試")
+            time.sleep(random.uniform(5, 10))
+            continue
 
     return None
 
@@ -225,7 +258,7 @@ def classify_user_status(user_posts: pd.DataFrame):
     else:
         post_flags = post_flags[:total_posts]
 
-    label, reason, total_events, symptom_counts = calculate_frequency_label(
+    label, reason, total_events, event_ratio, symptom_counts = calculate_frequency_label(
         post_flags, symptom_counts, total_posts
     )
 
@@ -277,12 +310,12 @@ for i in range(0, len(all_users), batch_size):
             df.loc[df["username"] == user, "gemini_user_status_label"] = result["label"]
             print(f"→ 標註為 {result['label']}")
 
-        time.sleep(random.uniform(12, 15))
+        time.sleep(random.triangular(12, 25, 18))
 
     df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
 
     if i + batch_size < len(all_users):
-        batch_sleep = random.uniform(5, 10)
+        batch_sleep = random.uniform(20, 40)
         print(f"△ Batch完成，休息{batch_sleep:.1f}秒...")
         time.sleep(batch_sleep)
     else:
@@ -303,7 +336,7 @@ if failed_users:
             df.loc[df["username"] == user, "gemini_user_status_label"] = "api_error"
             print("→ 補跑仍失敗，標記為 API_error")
 
-        time.sleep(random.uniform(12, 15))
+        time.sleep(random.triangular(12, 25, 18))
 
     df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
 else:
