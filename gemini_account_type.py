@@ -67,9 +67,9 @@ def rotate_api_key():
 client = get_client_with_validation()
 
 # ==========================================
-# 載入資料、初始化欄位
+# 載入資料、初始化欄位 threads_data_depression、account_type_result_depression
 # ==========================================
-df = pd.read_csv("threads_data_depression.csv", encoding="utf-8-sig")
+df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 
 string_columns = ["gemini_account_type_result"]
@@ -179,25 +179,50 @@ def classify_user(profile_text):
                 model=MODEL,
                 contents=prompt
             )
+            if not response.text or not response.text.strip():
+                print(f"⚠ Empty response（Key #{current_key_index+1}），標記為 API_error")
+                return None
 
             # 呼叫成功 → 設定此 key 的 cooldown
-            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
+            key_cooldowns[current_key_index] = time.time() + random.uniform(25, 35)
             return response.text.strip()
 
-        except Exception:
-            # API error → 給目前 key 一個冷卻時間（避免連續打死同一把）
-            key_cooldowns[current_key_index] = time.time() + random.uniform(12, 18)
+        except Exception as e:
+            msg = str(e).lower()
 
-            print("!! API錯誤，切換下一把 API key 重試...")
-            rotate_api_key()
-            client = get_client_with_validation()
+            if "429" in msg or "rate limit" in msg:
+                key_cooldowns[current_key_index] = time.time() + random.uniform(30, 60)
+                print(f"⚠ Rate limit，Key #{current_key_index+1} 冷卻 → 換下一把")
+                rotate_api_key()
+                client = get_client_with_validation()
+                continue
+
+            elif "503" in msg or "overloaded" in msg or "unavailable" in msg:
+                backoff = random.uniform(30, 60)
+                print(f"⚠ 模型過載，Key #{current_key_index+1} 等待 {backoff:.1f}s")
+                time.sleep(backoff)
+                continue
+
+            elif "401" in msg or "403" in msg or "permission" in msg:
+                print(f"⚠ Key #{current_key_index+1} 權限錯誤 → 換下一把")
+                rotate_api_key()
+                client = get_client_with_validation()
+                continue
+
+            else:
+                print("⚠ 未知錯誤詳細資訊：")
+                print(f"Key #{current_key_index+1}")
+                print(type(e))
+                print(str(e))
+                time.sleep(random.uniform(15, 25))
+                continue
 
     return None
 
 # ==========================================
 # 主流程（批次處理）
 # ==========================================
-batch_size = 10
+batch_size = 5
 # 移除無效username
 df = df.dropna(subset=["username"])
 df = df[df["username"].astype(str).str.strip() != ""]
