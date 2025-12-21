@@ -69,7 +69,7 @@ client = get_client_with_validation()
 # ==========================================
 # 載入資料、初始化欄位 threads_data_depression、account_type_result_depression
 # ==========================================
-df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
+df = pd.read_csv("threads_data_depression.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 
 string_columns = ["gemini_account_type_result"]
