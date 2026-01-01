@@ -28,7 +28,7 @@ API_KEYS = [
 
 current_key_index = 0
 
-# 過濾掉 None 或空白
+# 過濾掉None或空白
 API_KEYS = [k for k in API_KEYS if k is not None and k.strip() != ""]
 
 if len(API_KEYS) == 0:
@@ -315,6 +315,6 @@ if failed_users:
         
     df.to_csv("account_type_result_depression.csv", index=False, encoding="utf-8-sig")
 else:
-    print("無需補跑API error之使用者")
+    print("無需補跑之使用者")
 
 print("完成！已進行帳號審查標記")

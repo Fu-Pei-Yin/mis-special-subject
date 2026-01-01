@@ -267,11 +267,8 @@ def classify_user_status(user_posts: pd.DataFrame):
 # ==========================================
 # 主流程
 # ==========================================
-# ==========================================
-# 主流程（已修正身分 gate 邏輯）
-# ==========================================
 batch_size = 10
-df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
+df = pd.read_csv("account_type_result_depression_19.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 df["username"] = df["username"].astype(str)
 
@@ -297,17 +294,13 @@ for i in range(0, len(all_users), batch_size):
         user_df = df[df["username"] == user]
         print(f"處理使用者：{user}")
 
-        # -----------------------------
         # 已有標註 → 直接略過
-        # -----------------------------
         existing_labels = (user_df["gemini_user_status_label"].dropna().astype(str).str.strip())
         if existing_labels.str.len().gt(0).any():
             print(f"→ 使用者已有標註（{existing_labels.iloc[0]}），略過")
             continue
 
-        # -----------------------------
         # 身分 Gate 判斷
-        # -----------------------------
         gemini_acc = str(
             user_df.iloc[0].get("gemini_account_type_result", "")
         ).strip().lower()
@@ -334,11 +327,9 @@ for i in range(0, len(all_users), batch_size):
             print(f"→ 非可分析之帳號類型 {gemini_acc}，跳過分析")
             continue
 
-        # -----------------------------
         # 進行憂鬱傾向判斷
-        # -----------------------------
         if not allow_analysis:
-            # 理論上不會進到這裡，防呆保留
+            # 理論上不會進到這裡，防呆
             df.loc[df["username"] == user, "gemini_user_status_label"] = "skipped"
             print("→ 未通過身分 gate，跳過分析")
             continue
@@ -384,6 +375,6 @@ if failed_users:
         time.sleep(random.triangular(12, 25, 18))
     df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
 else:
-    print("無需補跑API error之使用者")
+    print("無需補跑之使用者")
 
 print("完成 user_status_label + symptom_counts 判定")
