@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 # 原始資料檔案
-INPUT_FILE = "user_status_label_depression.csv"
+INPUT_FILE = "user_status_label_normal.csv"
 
 # 要輸出的無風險名單
 OUTPUT_FILE = "non_depression_risk_user_list.csv"
@@ -12,7 +12,11 @@ def main():
     df = pd.read_csv(INPUT_FILE)
 
     # 保留無風險使用者的資料
-    df_non = df[df["gemini_user_status_label"] == "non_depression_risk_user"]
+    df_non = df[(df["gemini_user_status_label"] == "non_depression_risk_user") |
+        (
+            (df["gemini_user_status_label"] == "needs_manual_review") &
+            (df["human_user_status_label"] == "non_depression_risk_user")
+        )]
 
     if df_non.empty:
         print("沒有任何被標註為 non_depression_risk_user 的使用者")

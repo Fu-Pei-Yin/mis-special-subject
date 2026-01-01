@@ -12,7 +12,11 @@ def main():
     df = pd.read_csv(INPUT_FILE)
 
     # 保留高風險使用者的資料
-    df_high = df[df["gemini_user_status_label"] == "high_depression_risk_user"]
+    df_high = df[(df["gemini_user_status_label"] == "high_depression_risk_user") |
+        (
+            (df["gemini_user_status_label"] == "needs_manual_review") &
+            (df["human_user_status_label"] == "high_depression_risk_user")
+        )]
 
     if df_high.empty:
         print("沒有任何被標註為 high_depression_risk_user 的使用者")

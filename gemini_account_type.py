@@ -13,15 +13,17 @@ load_dotenv()
 # Multiple API Key Pool 設定
 # ==========================================
 API_KEYS = [
-    os.getenv("GOOGLE_API_KEY"),
     os.getenv("PRO_API_KEY"),
     os.getenv("MIS1_GEMINI_KEY"),
     os.getenv("TEST2_GEMINI_KEY"),
     os.getenv("TEST3_GEMINI_KEY"),
     os.getenv("TEST4_GEMINI_KEY"),
-    os.getenv("MISEE_API_KEY"),
     os.getenv("FU2_API_KEY"),
     os.getenv("FU_API_KEY"),
+    os.getenv("MISEE_API_KEY"),
+    os.getenv("TEST1_GEMINI_KEY"),
+    os.getenv("CAMP_API_KEY"),
+    os.getenv("GOOGLE_API_KEY"),
 ]
 
 current_key_index = 0
@@ -67,12 +69,15 @@ def rotate_api_key():
 client = get_client_with_validation()
 
 # ==========================================
-# 載入資料、初始化欄位 threads_data_depression、account_type_result_depression
+# 載入資料、初始化欄位 threads_data_depression、threads_data_normal
 # ==========================================
-df = pd.read_csv("threads_data_depression.csv", encoding="utf-8-sig")
+df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 
-string_columns = ["gemini_account_type_result"]
+string_columns = [
+    "gemini_account_type_result",
+    "human_account_type_result",
+]
 
 for col in string_columns:
     if col not in df.columns:
@@ -180,8 +185,8 @@ def classify_user(profile_text):
                 contents=prompt
             )
             if not response.text or not response.text.strip():
-                print(f"⚠ Empty response（Key #{current_key_index+1}），標記為 API_error")
-                return None
+                print(f"⚠ Empty response（Key #{current_key_index+1}），標記為 needs_manual_review")
+                return "needs_manual_review"
 
             # 呼叫成功 → 設定此 key 的 cooldown
             key_cooldowns[current_key_index] = time.time() + random.uniform(25, 35)
@@ -222,7 +227,7 @@ def classify_user(profile_text):
 # ==========================================
 # 主流程（批次處理）
 # ==========================================
-batch_size = 5
+batch_size = 10
 # 移除無效username
 df = df.dropna(subset=["username"])
 df = df[df["username"].astype(str).str.strip() != ""]
@@ -259,9 +264,15 @@ for i in range(0, len(all_users), batch_size):
         merged_text = build_profile_text(user_df)
         # 呼叫Gemini API
         result = classify_user(merged_text)
-        if result is None:
+
+        if result == "needs_manual_review":
+            df.loc[df["username"] == user, "gemini_account_type_result"] = "needs_manual_review"
+            print("→ Gemini 無法判斷，標記為 needs_manual_review")
+
+        elif result is None:
             failed_users.append(user)
             print("→ API_error，稍後補跑")
+
         else:
             df.loc[df["username"] == user, "gemini_account_type_result"] = result
             print(f"→ Gemini 判斷：{result}")
@@ -296,8 +307,9 @@ if failed_users:
             df.loc[df["username"] == user, "gemini_account_type_result"] = result
             print(f"→ 補跑成功：{result}")
         else:
-            df.loc[df["username"] == user, "gemini_account_type_result"] = "API_error"
-            print("→ 補跑仍失敗，標記為 API_error")
+            # 補跑仍失敗 → 統一轉人工審查
+            df.loc[df["username"] == user, "gemini_account_type_result"] = "needs_manual_review"
+            print("→ 補跑仍失敗，轉為 needs_manual_review（人工審查）")
             
         time.sleep(random.uniform(12, 15))
         
