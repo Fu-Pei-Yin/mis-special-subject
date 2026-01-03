@@ -199,7 +199,6 @@ def call_gemini_with_rotation(prompt: str):
             return response.text.strip()
         except Exception as e:
             msg = str(e).lower()
-            print(f"!! API錯誤（key #{current_key_index+1}）：{e}")
             if "503" in msg or "overloaded" in msg:
                 backoff = random.uniform(40, 90)
                 GLOBAL_BACKOFF_UNTIL = time.time() + backoff
@@ -268,7 +267,7 @@ def classify_user_status(user_posts: pd.DataFrame):
 # 主流程
 # ==========================================
 batch_size = 10
-df = pd.read_csv("account_type_result_normal.csv", encoding="utf-8-sig")
+df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 df["username"] = df["username"].astype(str)
 
@@ -350,7 +349,7 @@ for i in range(0, len(all_users), batch_size):
         time.sleep(random.triangular(12, 25, 18))
 
     # 每個 batch 結束即寫檔
-    df.to_csv("user_status_label_normal.csv",index=False,encoding="utf-8-sig")
+    df.to_csv("user_status_label_depression.csv",index=False,encoding="utf-8-sig")
 
     if i + batch_size < len(all_users):
         batch_sleep = random.uniform(20, 40)
@@ -373,7 +372,7 @@ if failed_users:
             df.loc[df["username"] == user, "gemini_user_status_label"] = "needs_manual_review"
             print("→ 補跑仍失敗，標記為 needs_manual_review（人工複審）")
         time.sleep(random.triangular(12, 25, 18))
-    df.to_csv("user_status_label_normal.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("user_status_label_depression.csv", index=False, encoding="utf-8-sig")
 else:
     print("無需補跑之使用者")
 
