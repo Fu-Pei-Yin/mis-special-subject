@@ -71,7 +71,7 @@ client = get_client_with_validation()
 # ==========================================
 # 載入資料、初始化欄位 threads_data_depression、threads_data_normal
 # ==========================================
-df = pd.read_csv("account_type_result_depression.csv", encoding="utf-8-sig")
+df = pd.read_csv("threads_data_normal.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 
 string_columns = [
@@ -280,7 +280,7 @@ for i in range(0, len(all_users), batch_size):
         processed += 1
         time.sleep(random.uniform(12, 15))
 
-    df.to_csv("account_type_result_depression.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("account_type_result_normal.csv", index=False, encoding="utf-8-sig")
 
     if i + batch_size < len(all_users):
         batch_sleep = random.uniform(5, 10)
@@ -313,7 +313,7 @@ if failed_users:
             
         time.sleep(random.uniform(12, 15))
         
-    df.to_csv("account_type_result_depression.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("account_type_result_normal.csv", index=False, encoding="utf-8-sig")
 else:
     print("無需補跑之使用者")
 
