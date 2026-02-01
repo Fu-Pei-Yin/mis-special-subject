@@ -1,0 +1,10 @@
+{% extends "errors/error_base.html" %}
+
+{% block icon %}📭{% endblock %}
+{% block title %}沒有足夠的資料{% endblock %}
+{% block message %}
+系統需要至少一則公開貼文，才能進行行為風險分析。
+{% endblock %}
+{% block actions %}
+<a href="{% url 'index' %}" class="btn-primary">返回首頁</a>
+{% endblock %}

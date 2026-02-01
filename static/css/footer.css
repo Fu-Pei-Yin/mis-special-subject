@@ -1,0 +1,19 @@
+.footer {
+  width: 100%;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important; /* 隱形 Footer 區塊界限 */
+  background: transparent;
+}
+
+.footer p {
+  margin: 0 !important;
+  padding: 10px 0 !important; /* 只保留微小 padding 確保文字不貼地 */
+  
+  font-size: 0.7rem; 
+  color: #adb5b3; 
+  text-align: center;
+  opacity: 0.5; 
+  line-height: 1; /* 移除行高產生的額外空間 */
+  letter-spacing: 0.05em;
+}

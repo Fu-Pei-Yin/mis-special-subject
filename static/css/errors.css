@@ -1,0 +1,119 @@
+:root {
+  --bg-color: #f0f4f3; 
+  --text-primary: #3d4543;
+  --text-secondary: #707a78;
+  --accent-healing: #a7bcaf;
+  --accent-calm: #b0c4de;
+  --card-bg: rgba(255, 255, 255, 0.6);
+  --border-color: rgba(167, 188, 175, 0.15);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* 確保寬度佔滿，避免 Footer 縮在一起 */
+  align-items: center;
+}
+
+/* 填滿中間剩餘空間，確保 Header 與 Footer 比例一致 */
+.error-container {
+  flex: 1; 
+  display: flex;
+  flex-direction: column; 
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 40px 20px;
+  box-sizing: border-box;
+}
+
+/* 強化療癒感：讓卡片陰影更柔和，對齊 input-group 的擴散感 */
+.error-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(15px); 
+  border: 1px solid rgba(167, 188, 175, 0.2); 
+  border-radius: 32px;
+  padding: 40px; 
+  max-width: 420px; 
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(167, 188, 175, 0.12); 
+}
+
+.error-icon {
+  font-size: 3.5rem;
+  margin-bottom: 24px;
+  opacity: 0.8;
+  filter: drop-shadow(0 4px 10px rgba(167, 188, 175, 0.2));
+}
+
+.error-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #2f3635;
+  margin-bottom: 18px;
+  letter-spacing: -0.5px;
+}
+
+.error-message {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.8;
+  margin-bottom: 35px;
+}
+
+/* 針對 <code> 標籤的細節處理*/
+.error-message code {
+  background: rgba(167, 188, 175, 0.15);
+  color: #5b7a67;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.error-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: #3d4543;
+  color: #ffffff !important;
+  padding: 14px 40px;
+  border-radius: 100px;
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-block;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* 底部微小標註 */
+.error-footer {
+  margin-top: 35px;
+  font-size: 0.7rem;
+  color: #adb5b3;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* RWD 行動裝置調整 */
+@media (max-width: 480px) {
+  .error-card {
+    padding: 40px 25px;
+    border-radius: 24px;
+  }
+}

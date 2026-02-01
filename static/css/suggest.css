@@ -1,0 +1,185 @@
+:root {
+  --bg-color: #f0f4f3; 
+  --text-primary: #3d4543;
+  --text-secondary: #707a78;
+  --accent-healing: #a7bcaf;    /* 鼠尾草綠 */
+  --accent-calm: #b0c4de;       /* 靜謐藍 */
+  --accent-warm: #d9c5b2;       /* 莫蘭迪米 */
+  --accent-melancholy: #b8afc2; /* 煙燻紫 */
+  --border-color: rgba(167, 188, 175, 0.15);
+}
+
+/* 全域佈局 */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%; 
+  align-items: center;
+}
+
+/* 報告容器：大卡片風格 */
+.report-container {
+  width: 90%;
+  max-width: 950px; /* 稍微放寬以利雙面板排版 */
+  margin: 60px auto; 
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(15px);
+  border-radius: 32px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 20px 50px rgba(167, 188, 175, 0.15);
+  display: block; 
+  overflow: hidden; /* 確保內容不會超出圓角 */
+}
+
+/* 頁首樣式 */
+.report-header {
+  background: rgba(167, 188, 175, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25px 40px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.report-header h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+  color: #2f3635;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* 按鈕風格 */
+.back-btn, .close-btn {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding: 8px 18px;
+  border-radius: 100px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.back-btn:hover, .close-btn:hover {
+  background: #ffffff;
+  color: var(--accent-healing);
+  border-color: var(--accent-healing);
+  transform: translateY(-1px);
+}
+
+/* Meta 資訊欄 */
+.meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 20px 40px;
+  background: rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.meta div { display: flex; flex-direction: column; }
+.meta span { font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600; letter-spacing: 0.5px; }
+.meta strong { font-size: 0.9rem; color: var(--text-primary); }
+
+/* --- 執行摘要區塊 (與下方 Panel 做出區隔) --- */
+.card { padding: 40px; box-sizing: border-box; }
+.card h2 {
+  font-size: 1rem;
+  color: var(--accent-healing);
+  margin-top: 0;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: 1px;
+}
+
+.card h2::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 18px;
+  background: var(--accent-healing);
+  border-radius: 100px;
+}
+
+/* --- 網格佈局：面板化設計 --- */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px; 
+  padding: 0 40px 40px 40px;
+  align-items: stretch; /* 確保左右 Panel 等高 */
+}
+
+/* Panel 卡片通用設定 */
+.grid .card {
+  padding: 30px; 
+  background: rgba(255, 255, 255, 0.4); 
+  border: 1px solid var(--border-color);
+  border-radius: 24px; 
+  transition: all 0.3s ease;
+  height: 100%; 
+  box-sizing: border-box;
+}
+
+/* 行為模式 Panel：加入左側強調線 */
+.grid .card:first-child {
+  border-left: 4px solid var(--accent-healing);
+}
+
+/* 風險因子 Panel：強化「煙燻紫」背景 */
+.card.warning {
+  background: rgba(184, 175, 194, 0.1) !important; 
+  border: 1px solid rgba(184, 175, 194, 0.2) !important;
+  border-left: 4px solid var(--accent-melancholy) !important;
+}
+
+.card.warning h2 { color: #8a7c92; }
+.card.warning h2::before { background: #8a7c92; }
+
+/* 列表項目優化 */
+.list-item { 
+  margin-bottom: 20px; 
+  padding-bottom: 15px;
+  border-bottom: 1px dashed rgba(167, 188, 175, 0.2); 
+}
+.list-item:last-child { border-bottom: none; }
+.list-item h3 { font-size: 0.95rem; margin-bottom: 8px; color: #2f3635; font-weight: 600; }
+.list-item p { font-size: 0.85rem; color: var(--text-secondary); margin: 0; line-height: 1.7; }
+
+.warning ul { padding-left: 18px; margin: 0; }
+.warning li { font-size: 0.85rem; color: #707a78; margin-bottom: 12px; line-height: 1.6; }
+
+/* AI 臨床建議：深底色塊 */
+.ai-box {
+  background: #3d4543; 
+  color: #f0f4f3;
+  padding: 40px;
+  border-radius: 0 0 32px 32px;
+  margin-top: 20px;
+}
+
+.ai-box h2 { color: var(--accent-healing); margin-bottom: 30px; }
+.ai-box h2::before { background: var(--accent-healing); }
+
+.ai-box ol { padding-left: 20px; margin: 0; }
+.ai-box li { margin-bottom: 18px; font-size: 0.95rem; opacity: 0.9; line-height: 1.8; }
+
+/* RWD 適配 */
+@media (max-width: 850px) {
+  .grid { grid-template-columns: 1fr; }
+  .report-container { margin: 20px; width: calc(100% - 40px); }
+  .meta { grid-template-columns: 1fr; gap: 15px; }
+}

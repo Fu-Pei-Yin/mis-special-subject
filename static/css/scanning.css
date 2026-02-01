@@ -1,0 +1,80 @@
+:root {
+  --bg-color: #f0f4f3;
+  --text-primary: #3d4543;
+  --text-secondary: #707a78;
+  --accent-healing: #a7bcaf;
+  --accent-calm: #b0c4de;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  align-items: center;
+}
+
+.scanning {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+/* 圓環容器 - 增加呼吸感 */
+.ring {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+
+/* 旋轉動畫進度條*/
+.spinner {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 4px solid rgba(167, 188, 175, 0.1); 
+  border-top: 4px solid var(--accent-healing); 
+  border-radius: 50%;
+  /* 減慢速度至 2s，減少焦躁感 */
+  animation: spin 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow: 0 0 20px rgba(167, 188, 175, 0.2);
+}
+
+.ring span {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--accent-healing);
+  letter-spacing: 1px;
+}
+
+.scanning h2 {
+  font-weight: 600;
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  color: #2f3635;
+}
+
+.scanning p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

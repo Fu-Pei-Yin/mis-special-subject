@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>分析結果報告 - MINDGUARD</title>
+    <link rel="stylesheet" href="/static/css/header.css">
+    <link rel="stylesheet" href="/static/css/analyze_result.css">
+    <link rel="stylesheet" href="/static/css/footer.css">
+    <script src="/static/js/analyze_result.js"></script>
+</head>
+<body>
+    {% include "header.html" %}
+    <main class="container">
+        <div class="result-header">
+            <div class="title-area">
+                <h1>分析結果報告 <small>• AI BEHAVIORAL DIAGNOSTIC SYSTEM</small></h1>
+            </div>
+            <form method="POST" action="{% url 'suggest_report' %}">
+                {% csrf_token %}
+                <input type="hidden" name="username" value="{{ username }}">
+                <input type="hidden" name="risk_prob" value="{{ risk_prob }}">
+                <input type="hidden" name="risk_level" value="{{ risk_level }}">
+                <input type="hidden" name="Nighttime_activity" value="{{ Nighttime_activity }}">
+                <input type="hidden" name="emotional_negativity" value="{{ emotional_negativity }}">
+                <button type="submit" class="action-btn">📄 生成完整臨床建議</button>
+            </form>
+        </div>
+        <section class="user-profile-card">
+            <div class="user-info">
+                <div class="user-meta">
+                    <h2>
+                        {{ username }}
+                        <a class="external-link"
+                           href="https://www.threads.com/@{{ username }}"
+                           target="_blank"
+                           rel="noopener noreferrer">🔗</a>
+                    </h2>
+                    <p class="handle">@{{ display_name }}</p>
+                    <span class="risk-tag">● {{ risk_level }} ({{ risk_prob }}%)</span>
+                </div>
+            </div>
+            <div class="bio-insight">
+                <h3>帳號簡介 (BIO INSIGHT)</h3>
+                <p>{{ bio }}</p>
+            </div>
+        </section>
+        <div class="dashboard-grid">
+            <aside class="left-panel">
+                <div class="card-box">
+                    <h3 class="card-title">系統總體風險評估</h3>
+                    <div class="chart-container">
+                        <div class="bar-group">
+                            <div class="bar-wrapper">
+                                <div class="bar purple" data-height="{{ emotional_negativity }}"></div>
+                            </div>
+                            <span class="bar-label">負向情感</span>
+                            <span class="bar-value">{{ emotional_negativity }}%</span>
+                        </div>
+                        <div class="bar-group">
+                            <div class="bar-wrapper">
+                                <div class="bar blue" data-height="{{ Nighttime_activity }}"></div>
+                            </div>
+                            <span class="bar-label">深夜活躍</span>
+                            <span class="bar-value">{{ Nighttime_activity }}%</span>
+                        </div>
+                        <div class="bar-group">
+                            <div class="bar-wrapper">
+                                <div class="bar orange" data-height="{{ risk_prob }}"></div>
+                            </div>
+                            <span class="bar-label">憂鬱傾向機率</span>
+                            <span class="bar-value">{{ risk_prob }}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-box">
+                    <h3 class="card-title">核心行為洞察摘要</h3>
+                    <div class="insight-item">
+                        <div class="insight-label">
+                            <i class="icon-heart">❤️</i> 情感負面度
+                        </div>
+                        <div class="insight-value">{{ emotional_negativity }}%</div>
+                        <div class="mini-progress">
+                            <div class="fill purple" data-width="{{ emotional_negativity }}"></div>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">
+                            <i class="icon-moon">🌙</i> 深夜活躍比
+                        </div>
+                        <div class="insight-value">{{ Nighttime_activity }}%</div>
+                        <div class="mini-progress">
+                            <div class="fill blue" data-width="{{ Nighttime_activity }}"></div>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">
+                            <i class="icon-moon">😔</i> 憂鬱傾向機率
+                        </div>
+                        <div class="insight-value">{{ risk_prob }}%</div>
+                        <div class="mini-progress">
+                            <div class="fill orange" data-width="{{ risk_prob }}"></div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            <section class="right-panel">
+                <div class="panel-header">
+                    <h3>兩週動態樣本分析 (共 {{ posts|length }} 則)</h3>
+                    <span class="sync-time">SYNCED AT {{ now }}</span>
+                </div>
+                {% for post in posts %}
+                <article class="post-card">
+                    <div class="post-user">
+                        <div class="post-meta">
+                            <strong>@{{ username }}</strong><br>
+                            <span class="post-date">{{ post.post_date }}</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <p class="post-content">{{ post.content }}</p>
+                    <div class="post-actions">
+                    </div>
+                </article>
+                {% endfor %}
+            </section>
+        </div>
+    </main>
+    {% include "footer.html" %}
+</body>
+</html>

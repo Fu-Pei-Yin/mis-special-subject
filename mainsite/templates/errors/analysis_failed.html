@@ -1,0 +1,10 @@
+{% extends "errors/error_base.html" %}
+
+{% block icon %}🧠{% endblock %}
+{% block title %}分析未完成{% endblock %}
+{% block message %}
+目前無法完成 AI 行為分析，請稍後再試或重新提交分析請求。
+{% endblock %}
+{% block actions %}
+<a href="{% url 'index' %}" class="btn-primary">重新分析</a>
+{% endblock %}

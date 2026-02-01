@@ -1,0 +1,9 @@
+django==4.2
+torch
+sentence-transformers
+scikit-learn
+joblib
+selenium
+beautifulsoup4
+langid
+numpy

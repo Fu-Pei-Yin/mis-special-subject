@@ -1,0 +1,55 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>MINDGUARD AI 臨床診斷報告</title>
+    <link rel="stylesheet" href="/static/css/suggest.css">
+    <script src="/static/js/suggest.js"></script>
+</head>
+<body>
+  <div class="report-container">
+    <header class="report-header">
+      <button class="back-btn">← 返回分析結果</button>
+      <h1>MINDGUARD AI 臨床診斷報告</h1>
+      <button class="close-btn">✕</button>
+    </header>
+    <section class="meta">
+      <div><span>TARGET:</span><strong>{{ username }}</strong></div>
+      <div><span>PERIOD:</span><strong>{{ period }}</strong></div>
+      <div><span>GENERATED:</span><strong>{{ generated_time }}</strong></div>
+    </section>
+    <section class="card">
+      <h2>執行摘要 (EXECUTIVE SUMMARY)</h2>
+      <p>{{ summary }}</p>
+    </section>
+    <section class="grid">
+      <div class="card">
+        <h2>行為模式深度解析</h2>
+        {% for item in behavior_patterns %}
+          <div class="list-item">
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.content }}</p>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="card warning">
+        <h2>關聯風險因子識別</h2>
+        <ul>
+          {% for risk in risk_factors %}
+            <li>{{ risk }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+    <section class="ai-box">
+      <h2>AI 臨床建議指引</h2>
+      <ol>
+        {% for g in ai_guidelines %}
+          <li>{{ g }}</li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+</body>
+</html>
