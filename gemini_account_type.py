@@ -71,7 +71,7 @@ client = get_client_with_validation()
 # ==========================================
 # 載入資料、初始化欄位 threads_data_depression、threads_data_normal
 # ==========================================
-df = pd.read_csv("threads_data_normal.csv", encoding="utf-8-sig")
+df = pd.read_csv("threads_data_depression.csv", encoding="utf-8-sig")
 df["post_date"] = pd.to_datetime(df["post_date"], errors="coerce")
 
 string_columns = [
@@ -186,7 +186,7 @@ def classify_user(profile_text):
             )
             if not response.text or not response.text.strip():
                 print(f"⚠ Empty response（Key #{current_key_index+1}），標記為 needs_manual_review")
-                return "needs_manual_review"
+                return None
 
             # 呼叫成功 → 設定此 key 的 cooldown
             key_cooldowns[current_key_index] = time.time() + random.uniform(25, 35)
@@ -280,7 +280,7 @@ for i in range(0, len(all_users), batch_size):
         processed += 1
         time.sleep(random.uniform(12, 15))
 
-    df.to_csv("account_type_result_normal.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("account_type_result_depression.csv", index=False, encoding="utf-8-sig")
 
     if i + batch_size < len(all_users):
         batch_sleep = random.uniform(5, 10)
@@ -313,8 +313,24 @@ if failed_users:
             
         time.sleep(random.uniform(12, 15))
         
-    df.to_csv("account_type_result_normal.csv", index=False, encoding="utf-8-sig")
+    df.to_csv("account_type_result_depression.csv", index=False, encoding="utf-8-sig")
 else:
     print("無需補跑之使用者")
 
+# 人工審查統計提醒
+user_level_result = (
+    df[["username", "gemini_account_type_result"]]
+    .drop_duplicates(subset=["username"])
+)
+
+manual_review_users = user_level_result[user_level_result["gemini_account_type_result"] == "needs_manual_review"]["username"]
+
+total_users = user_level_result["username"].nunique()
+manual_review_count = manual_review_users.nunique()
+
+print("\n===== 人工審查提醒（以 user 為單位） =====")
+print(f"needs_manual_review 使用者數量：{manual_review_count}")
+print(f"總使用者數量：{total_users}")
+
+#最後結果
 print("完成！已進行帳號審查標記")

@@ -3,7 +3,7 @@ import pandas as pd
 # ==============================
 # 讀取資料
 # ==============================
-CSV_PATH = "user_status_label_normal.csv"
+CSV_PATH = "user_status_label_depression.csv"
 df = pd.read_csv(CSV_PATH, encoding="utf-8-sig")
 
 # 必要欄位檢查

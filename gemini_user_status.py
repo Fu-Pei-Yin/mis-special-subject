@@ -376,4 +376,19 @@ if failed_users:
 else:
     print("無需補跑之使用者")
 
+# 人工審查統計提醒
+user_level_result = (
+    df[["username", "gemini_user_status_label"]]
+    .drop_duplicates(subset=["username"])
+)
+
+manual_review_users = user_level_result[user_level_result["gemini_user_status_label"] == "needs_manual_review"]["username"]
+
+total_users = user_level_result["username"].nunique()
+manual_review_count = manual_review_users.nunique()
+
+print("\n===== 人工審查提醒（以 user 為單位） =====")
+print(f"needs_manual_review 使用者數量：{manual_review_count}")
+print(f"總使用者數量：{total_users}")
+
 print("完成 user_status_label + symptom_counts 判定")
