@@ -439,7 +439,7 @@ class ThreadsCrawler:
 
 
 if __name__ == "__main__":
-    crawler = ThreadsCrawler("bwer.yu", headless=False)
+    crawler = ThreadsCrawler("chloe____006", headless=False)
     crawler.auto_login(cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl")
     
     user_data = crawler.crawl_user()
