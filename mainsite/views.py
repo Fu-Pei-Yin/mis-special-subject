@@ -6,8 +6,13 @@ from core.dataset import compute_user_numeric_features, extract_logic_features
 from django.utils.timezone import now
 from requests.exceptions import ReadTimeout, ConnectionError
 import socket
+import re
+
+USERNAME_REGEX = re.compile(r'^(?!.*\.\.)(?!\.)(?!.*\.$)[A-Za-z0-9._]+$')
+
 def index(request):
     return render(request, "index.html")
+
 def analyze(request):
     if request.method != "POST":
         return redirect("index")
@@ -16,18 +21,19 @@ def analyze(request):
         return render(request, "errors/input_error.html", {
             "message": "尚未輸入使用者名稱"
         })
-    if " " in username or "/" in username:
+    if not USERNAME_REGEX.match(username):
         return render(request, "errors/input_error.html", {
-            "message": "使用者名稱格式錯誤"
+            "message": "Threads 使用者名稱僅允許英文字母、數字、底線(_)與句點(.)"
         })
     return render(request,"scanning.html",locals())
+
 def result(request):
     if request.method != "POST":
         return redirect("index")
     username = request.POST.get("username")
     try:
         crawler = ThreadsCrawler(username, headless=True)
-        crawler.auto_login(cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl")
+        crawler.auto_login(cookie_path="C:/Users/eva19/Desktop/graduate_project/threads_depression_web/crawler/cookies.pkl")
         user_data = crawler.crawl_user()
     except (ReadTimeout, TimeoutError, socket.timeout, ConnectionError):
         return render(request, "errors/system_busy.html")
@@ -64,6 +70,7 @@ def result(request):
             "emotional_negativity": round(emotional_negativity * 100, 1)
         }
     )
+
 def suggest_report(request):
     if request.method != "POST":
         return redirect("index")
