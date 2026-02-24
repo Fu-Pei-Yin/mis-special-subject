@@ -8,24 +8,42 @@ from requests.exceptions import ReadTimeout, ConnectionError
 import socket
 import re
 
-USERNAME_REGEX = re.compile(r'^(?!.*\.\.)(?!\.)(?!.*\.$)[A-Za-z0-9._]+$')
+ALLOWED_CHARS_REGEX = re.compile(r'^[A-Za-z0-9._]+$')
 
 def index(request):
     return render(request, "index.html")
 
+def is_valid_dot_rule(username: str) -> bool:
+    if username.startswith("."):
+        return False
+    if username.endswith("."):
+        return False
+    if ".." in username:
+        return False
+    return True
 def analyze(request):
     if request.method != "POST":
         return redirect("index")
+
     username = request.POST.get("username", "").strip()
+
+    # 空值
     if not username:
         return render(request, "errors/input_error.html", {
             "message": "尚未輸入使用者名稱"
         })
-    if not USERNAME_REGEX.match(username):
+    # 非法字元
+    if not ALLOWED_CHARS_REGEX.match(username):
         return render(request, "errors/input_error.html", {
-            "message": "Threads 使用者名稱僅允許英文字母、數字、底線(_)與句點(.)"
+            "message": "僅允許英文字母、數字、底線(_)與句點(.)"
         })
-    return render(request,"scanning.html",locals())
+    # 句點規則
+    if not is_valid_dot_rule(username):
+        return render(request, "errors/input_error.html", {
+            "message": "句點(.)不可開頭、結尾或連續出現"
+        })
+
+    return render(request, "scanning.html", {"username": username})
 
 def result(request):
     if request.method != "POST":
