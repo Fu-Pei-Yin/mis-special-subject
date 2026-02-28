@@ -1,12 +1,13 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Threads Depression Screener</title>
-  <link rel="stylesheet" href="/static/css/header.css">
-  <link rel="stylesheet" href="/static/css/main.css">
-  <link rel="stylesheet" href="/static/css/footer.css">
-  <script src="/static/js/main.js"></script>
+  <link rel="stylesheet" href="{% static 'css/header.css' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  <link rel="stylesheet" href="{% static 'css/footer.css' %}">
+  <script src="{% static 'js/main.js' %}"></script>
 </head>
 <body>
   {% include "header.html" %}
@@ -21,6 +22,8 @@
         <input
           type="text"
           name="username"
+          pattern="^[A-Za-z0-9._]+$"
+          title="僅允許英文字母、數字、底線(_)與句點(.)"
           placeholder="@threads_username"
           required
         />

@@ -1,12 +1,13 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Threads Depression Screener</title>
-  <link rel="stylesheet" href="/static/css/header.css">
-  <link rel="stylesheet" href="/static/css/scanning.css">
-  <link rel="stylesheet" href="/static/css/footer.css">
-  <script src="/static/js/scanning.js"></script>
+  <link rel="stylesheet" href="{% static 'css/header.css' %}">
+    <link rel="stylesheet" href="{% static 'css/scanning.css' %}">
+    <link rel="stylesheet" href="{% static 'css/footer.css' %}">
+    <script src="{% static 'js/scanning.js' %}"></script>
 </head>
 <body>
     {% include "header.html" %}

@@ -13,7 +13,8 @@ from django.utils.timezone import now
 from requests.exceptions import ReadTimeout, ConnectionError
 import socket
 import json
-
+import re
+from django.http import JsonResponse
 
 # --- 工具類別：解決 JSON 序列化問題 ---
 class DatetimeEncoder(json.JSONEncoder):
@@ -35,101 +36,125 @@ def _fmt_date(raw):
 def index(request):
     return render(request, "index.html")
 
-
+ALLOWED_CHARS_REGEX = re.compile(r'^[A-Za-z0-9._]+$')
+def is_valid_dot_rule(username: str) -> bool:
+    if username.startswith("."):
+        return False
+    if username.endswith("."):
+        return False
+    if ".." in username:
+        return False
+    return True
 def analyze(request):
     if request.method != "POST":
         return redirect("index")
     username = request.POST.get("username", "").strip()
+    # 空值
     if not username:
-        return render(request, "errors/input_error.html", {"message": "尚未輸入使用者名稱"})
-    if " " in username or "/" in username:
-        return render(request, "errors/input_error.html", {"message": "使用者名稱格式錯誤"})
-    return render(request, "scanning.html", locals())
+        return render(request, "errors/input_error.html", {
+            "message": "尚未輸入使用者名稱"
+        })
+    # 非法字元
+    if not ALLOWED_CHARS_REGEX.match(username):
+        return render(request, "errors/input_error.html", {
+            "message": "僅允許英文字母、數字、底線(_)與句點(.)"
+        })
+    # 句點規則
+    if not is_valid_dot_rule(username):
+        return render(request, "errors/input_error.html", {
+            "message": "句點(.)不可開頭、結尾或連續出現"
+        })
+
+    return render(request, "scanning.html", {"username": username})
 
 
 def result(request):
     if request.method != "POST":
         return redirect("index")
-    username = request.POST.get("username")
-
     try:
-        crawler = ThreadsCrawler(username, headless=True)
-        # 請確保此路徑在您的環境中正確
-        crawler.auto_login(cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl")
-        user_data = crawler.crawl_user()
-    except (ReadTimeout, TimeoutError, socket.timeout, ConnectionError):
-        return render(request, "errors/system_busy.html")
+        username = request.POST.get("username")
+        try:
+            crawler = ThreadsCrawler(username, headless=True)
+            # 請確保此路徑在您的環境中正確
+            crawler.auto_login(cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl")
+            user_data = crawler.crawl_user()
+        except (ReadTimeout, TimeoutError, socket.timeout, ConnectionError):
+            return render(request, "errors/system_busy.html")
 
-    if not user_data or not user_data.get('posts'):
-        return render(request, "errors/no_data.html", {"username": username})
+        if not user_data or not user_data.get('posts'):
+            return render(request, "errors/no_data.html", {"username": username})
 
-    try:
-        risk_prob = predict_username(user_data)
-        if risk_prob >= 0.66:
-            risk_level = "高風險"
-        elif risk_prob >= 0.33:
-            risk_level = "中風險"
-        else:
-            risk_level = "低風險"
-    except Exception:
-        return render(request, "errors/analysis_failed.html")
+        try:
+            risk_prob = predict_username(user_data)
+            if risk_prob >= 0.66:
+                risk_level = "高風險"
+            elif risk_prob >= 0.33:
+                risk_level = "中風險"
+            else:
+                risk_level = "低風險"
+        except Exception:
+            return render(request, "errors/analysis_failed.html")
 
-    bio = str(user_data.get('bio', ''))
-    post_texts = [str(p['content']) for p in user_data['posts']]
-    post_dates = [_fmt_date(p.get('post_date', '')) for p in user_data['posts']]
+        bio = str(user_data.get('bio', ''))
+        post_texts = [str(p['content']) for p in user_data['posts']]
+        post_dates = [_fmt_date(p.get('post_date', '')) for p in user_data['posts']]
 
-    num_features = compute_user_numeric_features(post_texts, bio, post_dates)
-    logic_features = extract_logic_features(post_texts, bio)
+        num_features = compute_user_numeric_features(post_texts, bio, post_dates)
+        logic_features = extract_logic_features(post_texts, bio)
 
-    # 提取特徵 (注意索引需與 dataset.py 定義一致)
-    # num_features: [post_count, avg_post_len, bio_len, night_ratio, max, min]
-    # logic_features: [neg_count, pos_count, logic_score, bio_flag, neg_ratio]
-    night_ratio_val = num_features[3]
-    neg_ratio_val = logic_features[4]
+        # 提取特徵 (注意索引需與 dataset.py 定義一致)
+        # num_features: [post_count, avg_post_len, bio_len, night_ratio, max, min]
+        # logic_features: [neg_count, pos_count, logic_score, bio_flag, neg_ratio]
+        night_ratio_val = num_features[3]
+        neg_ratio_val = logic_features[4]
 
-    # 標記關鍵詞
-    posts_with_keywords = []
-    for text, str_date in zip(post_texts, post_dates):
-        neg_hits = [w for w in NEG_WORDS if w in text]
-        pos_hits = [w for w in POS_WORDS if w in text]
-        posts_with_keywords.append({
-            "post_date": str_date,
-            "content": text,
-            "neg_words": neg_hits,
-            "pos_words": pos_hits,
-            "has_risk_word": bool(neg_hits),
+        # 標記關鍵詞
+        posts_with_keywords = []
+        for text, str_date in zip(post_texts, post_dates):
+            neg_hits = [w for w in NEG_WORDS if w in text]
+            pos_hits = [w for w in POS_WORDS if w in text]
+            posts_with_keywords.append({
+                "post_date": str_date,
+                "content": text,
+                "neg_words": neg_hits,
+                "pos_words": pos_hits,
+                "has_risk_word": bool(neg_hits),
+            })
+
+        # 打包白箱數據 (此 JSON 將傳往 analyze_result.html 的隱藏欄位)
+        whitebox_data = {
+            "neg_count": int(logic_features[0]),
+            "pos_count": int(logic_features[1]),
+            "logic_score": int(logic_features[2]),
+            "bio_flag": bool(logic_features[3]),
+            "neg_ratio": round(neg_ratio_val * 100, 1),
+            "night_ratio": round(night_ratio_val * 100, 1),
+            "post_count": int(num_features[0]),
+            "avg_post_len": round(float(num_features[1]), 1),
+            "bio_risk_words": [w for w in BIO_RISK_WORDS if w in bio],
+            "posts_keywords": posts_with_keywords,
+        }
+        whitebox_payload = json.dumps(whitebox_data, ensure_ascii=False, cls=DatetimeEncoder)
+        
+        # 【新增】將 whitebox_payload 存入 session 作為備用
+        request.session['whitebox_payload'] = whitebox_payload
+        
+        return render(request, "analyze_result.html", {
+            "username": username,
+            "display_name": user_data.get("display_name", username),
+            "bio": bio,
+            "risk_prob": round(risk_prob * 100, 1),
+            "risk_level": risk_level,
+            "posts": user_data["posts"],
+            "now": datetime.now(),
+            "Nighttime_activity": round(night_ratio_val * 100, 1),
+            "emotional_negativity": round(neg_ratio_val * 100, 1),
+            "whitebox_payload": whitebox_payload, # 關鍵：傳給前端
         })
-
-    # 打包白箱數據 (此 JSON 將傳往 analyze_result.html 的隱藏欄位)
-    whitebox_data = {
-        "neg_count": int(logic_features[0]),
-        "pos_count": int(logic_features[1]),
-        "logic_score": int(logic_features[2]),
-        "bio_flag": bool(logic_features[3]),
-        "neg_ratio": round(neg_ratio_val * 100, 1),
-        "night_ratio": round(night_ratio_val * 100, 1),
-        "post_count": int(num_features[0]),
-        "avg_post_len": round(float(num_features[1]), 1),
-        "bio_risk_words": [w for w in BIO_RISK_WORDS if w in bio],
-        "posts_keywords": posts_with_keywords,
-    }
-    whitebox_payload = json.dumps(whitebox_data, ensure_ascii=False, cls=DatetimeEncoder)
-    
-    # 【新增】將 whitebox_payload 存入 session 作為備用
-    request.session['whitebox_payload'] = whitebox_payload
-    
-    return render(request, "analyze_result.html", {
-        "username": username,
-        "display_name": user_data.get("display_name", username),
-        "bio": bio,
-        "risk_prob": round(risk_prob * 100, 1),
-        "risk_level": risk_level,
-        "posts": user_data["posts"],
-        "now": datetime.now(),
-        "Nighttime_activity": round(night_ratio_val * 100, 1),
-        "emotional_negativity": round(neg_ratio_val * 100, 1),
-        "whitebox_payload": whitebox_payload, # 關鍵：傳給前端
-    })
+    # 全域未知錯誤
+    except Exception as e:
+        print("UNEXPECTED ERROR:", e)
+        return render(request, "errors/error.html")
 
 
 def suggest_report(request):
@@ -220,3 +245,13 @@ def suggest_report(request):
     }
 
     return render(request, "suggest.html", context)
+
+def custom_404_view(request, exception):
+    if "application/json" in request.headers.get("Accept", ""):
+        return JsonResponse ({
+        "error": "Page not found",
+        "status_code": 404,
+        "detail": "The requested URL was not found."
+        }, status=404)
+    else:
+        return render(request, "errors/error_404.html", status=404)

@@ -9,3 +9,5 @@ urlpatterns = [
     path("result/", views.result, name="result"),
     path("suggest/",views.suggest_report,name="suggest_report"),
 ]
+
+handler404 = views.custom_404_view
