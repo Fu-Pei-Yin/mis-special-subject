@@ -33,66 +33,45 @@ def safe_parse_datetime(date_text):
     return None
 
 def contains_invalid_fraction(text):
-    """
-    text 已為單行字串
-    - 若結尾為 分子 ≠ 1 的分數（x/y）→ False
-    - 其他情況（含 1/n 或非分數結尾）→ True
-    """
     match = re.search(r'(\d+)/(\d+)$', text)
-
     if match and match.group(1) != '1':
         return True
-
     return False
 
 
-
 def extract_post_content(post_container, username):
-    """
-    改進版內容提取 - 使用更精確的策略避免重複
-    """
     try:
-        # 策略1: 尋找主要內容區域的特徵 class
         content_candidates = []
         
-        # 找到所有可能包含內容的 div
         main_content_divs = post_container.find_all('div', class_=lambda x: x and any(
             marker in str(x) for marker in ['x1iorvi4', 'x78zum5', 'xdt5ytf']
         ))
         
-        # 策略2: 找尋包含實際文字內容的 span
         for div in main_content_divs:
             spans = div.find_all('span', class_=lambda x: x and 'x1lliihq' in str(x))
             for span in spans:
                 text = span.get_text(strip=True)
         
-        # 策略3: 如果上述方法失敗,使用備用方案
         if not content_candidates:
             all_spans = post_container.find_all('span')
             for span in all_spans:
                 text = span.get_text(strip=True)
-                # 嚴格過濾條件
                 if ('則留言' not in text and
                     '次分享' not in text and
                     username not in text):
                     content_candidates.append(text)
         
-        # 去重並組合
         seen_content = set()
         unique_lines = []
         
         for text in content_candidates:
-            # 正規化文字(移除多餘空白)
             normalized = ' '.join(text.split())
             
-            # 檢查是否為子字串(避免包含關係的重複)
             is_duplicate = False
             to_remove = None
             
-            # 先找出需要移除的項目，不要在迭代時修改集合
             for existing in seen_content:
                 if normalized in existing or existing in normalized:
-                    # 保留較長的版本
                     if len(normalized) > len(existing):
                         to_remove = existing
                         break
@@ -100,7 +79,6 @@ def extract_post_content(post_container, username):
                         is_duplicate = True
                         break
             
-            # 在迭代完成後才修改集合
             if to_remove:
                 seen_content.discard(to_remove)
                 unique_lines = [line for line in unique_lines if line != to_remove]
@@ -109,19 +87,17 @@ def extract_post_content(post_container, username):
                 seen_content.add(normalized)
                 unique_lines.append(normalized)
         
-        # 最終清理
         final_content = '\n'.join(unique_lines)
         
-        # 移除明顯的介面元素
         ui_patterns = [
-            r'\d+/\d+$',  # 分頁標記
-            r'^\d+\s*(分鐘|小時|天|週|個月)前?$',  # 時間標記
+            r'\d+/\d+$',
+            r'^\d+\s*(分鐘|小時|天|週|個月)前?$',
             r'^已驗證$',
             r'^\d+\s*則留言$',
             r'^\d+\s*次分享$',
             r'^查看其他\d+\s*則回覆$',
-            r'^查看更多$',  # 更多按鈕
-            r'^\d{4}-\d{2}-\d{2}$',  # 時間2025-12-8
+            r'^查看更多$',
+            r'^\d{4}-\d{2}-\d{2}$',
             r'^\d{4}-\d{2}-\d{1}$',
             r'^\d{4}-\d{1}-\d{2}$',
             r'^\d{4}-\d{1}-\d{1}$',
@@ -137,16 +113,13 @@ def extract_post_content(post_container, username):
         
         final_content = '\n'.join(cleaned_lines)
         
-        # 如果內容太短,嘗試直接從 article 提取
         if len(final_content) < 10:
             article = post_container if post_container.name == 'article' else post_container.find_parent('article')
             if article:
-                # 找到文字密度最高的 div
                 text_divs = article.find_all('div', recursive=True)
                 max_text_div = max(text_divs, key=lambda d: len(d.get_text(strip=True)), default=None)
                 if max_text_div:
                     final_content = max_text_div.get_text(separator='\n', strip=True)
-                    # 再次清理
                     lines = [l.strip() for l in final_content.split('\n') if len(l.strip()) > 10]
                     final_content = '\n'.join(lines)
         if "已釘選" in final_content:
@@ -155,7 +128,6 @@ def extract_post_content(post_container, username):
         return result.strip()
 
     except Exception as e:
-        print(f"⚠️ 提取內容時發生錯誤: {e}")
         return ""
 
 import hashlib
@@ -163,18 +135,19 @@ import hashlib
 def get_post_signature(post_text, length=500):
     if not post_text:
         return None
-
     text = post_text[:length].strip()
     return hashlib.md5(text.encode("utf-8")).hexdigest()
 
 class ThreadsCrawler:
-    def __init__(self, username, headless=True):
+    def __init__(self, username, headless=True, progress_callback=None):
         self.username = username
         self.display_name = ""
         self.bio = ""
         self.all_posts_raw = []
         self.cutoff_date = None
         self.first_non_pinned_date = None
+        # ✅ 新增：進度回呼函式，預設使用 print
+        self.progress_callback = progress_callback or (lambda msg: print(msg))
         
         options = webdriver.ChromeOptions()
         if headless:
@@ -187,23 +160,18 @@ class ThreadsCrawler:
         self.driver = webdriver.Chrome(options=options)
         self.wait = WebDriverWait(self.driver, 20)
 
+    def _log(self, msg):
+        """統一的進度回報方法，取代直接呼叫 print"""
+        self.progress_callback(msg)
+
     def scroll_and_wait(self, wait_time=2):
-        """僅下滑一個畫面高度（viewport）"""
-        last_height = self.driver.execute_script(
-            "return document.body.scrollHeight"
-        )
-        self.driver.execute_script("""
-            window.scrollBy(0, window.innerHeight*2);
-        """)
+        last_height = self.driver.execute_script("return document.body.scrollHeight")
+        self.driver.execute_script("window.scrollBy(0, window.innerHeight*2);")
         time.sleep(wait_time)
-        new_height = self.driver.execute_script(
-            "return document.body.scrollHeight"
-        )
+        new_height = self.driver.execute_script("return document.body.scrollHeight")
         return new_height != last_height
 
-
     def auto_login(self, cookie_path="cookies.pkl"):
-        """自動登入使用 cookies"""
         self.driver.get("https://www.threads.com/login")
         time.sleep(2)
         
@@ -219,9 +187,9 @@ class ThreadsCrawler:
                     pass
             self.driver.refresh()
             time.sleep(5)
-            print("✓ 自動登入成功\n")
+            self._log("✓ 自動登入成功\n")
         except FileNotFoundError:
-            print(f"✗ 找不到 cookie 檔案: {cookie_path}\n")
+            self._log(f"✗ 找不到 cookie 檔案: {cookie_path}\n")
 
     def extract_user_info(self):
         soup = BeautifulSoup(self.driver.page_source, 'html.parser')
@@ -234,27 +202,24 @@ class ThreadsCrawler:
         bio_div = soup.find('div', class_='xw7yly9')
         if bio_div:
             self.bio = bio_div.get_text(strip=True)
+
     def update_cutoff_date(self):
-        """動態更新截止日期 - 延後觸發時機"""
         if self.cutoff_date is not None:
             return
         
-        # 改為需要至少 5 篇貼文才設定截止日期
         if len(self.all_posts_raw) < 5:
             return
-        
         
         for i, post in enumerate(self.all_posts_raw):
             post_date = datetime.strptime(post["post_date"], "%Y-%m-%d %H:%M")
             self.first_non_pinned_date = post_date
             self.cutoff_date = post_date - timedelta(days=14)
             
-            print(f"📌 第一篇非置頂貼文: {self.first_non_pinned_date.strftime('%Y-%m-%d %H:%M')}")
-            print(f"📅 抓取截止日期: {self.cutoff_date.strftime('%Y-%m-%d %H:%M')}")
+            self._log(f"📌 第一篇非置頂貼文: {self.first_non_pinned_date.strftime('%Y-%m-%d %H:%M')}")
+            self._log(f"📅 抓取截止日期: {self.cutoff_date.strftime('%Y-%m-%d %H:%M')}")
             break
 
     def extract_posts_with_cutoff(self, seen_posts):
-        """提取貼文並即時檢查時間限制"""
         new_posts_count = 0
         should_stop = False
         
@@ -276,7 +241,6 @@ class ThreadsCrawler:
                 dt = safe_parse_datetime(date_text)
                 
                 if not dt:
-                    print("dt doesn't exist")
                     continue
                 
                 post_container = time_elem.find_parent('article')
@@ -294,24 +258,19 @@ class ThreadsCrawler:
                                 break
                 
                 if not post_container:
-                    print("no container")
                     continue
                 
                 post_text = extract_post_content(post_container, self.username)
                 
-                # 放寬內容長度限制：從 5 改為 1
                 if not post_text or len(post_text) < 1:
-                    print("length is not enough")
                     continue
                 
-                # 檢查是否包含無效的分數格式
                 if contains_invalid_fraction(post_text):
-                    print(f"⏭️  跳過包含無效分數格式的貼文 (發文時間: {dt.strftime('%Y-%m-%d %H:%M')})")
+                    self._log(f"⏭️  跳過包含無效分數格式的貼文 (發文時間: {dt.strftime('%Y-%m-%d %H:%M')})")
                     continue
                 
-                # 如果這是第一篇貼文且包含無效分數，跳過
                 if len(self.all_posts_raw) == 0 and contains_invalid_fraction(post_text):
-                    print(f"⏭️  第一篇貼文包含無效分數格式，跳過")
+                    self._log(f"⏭️  第一篇貼文包含無效分數格式，跳過")
                     continue
                 
                 seen_posts = set()
@@ -333,12 +292,12 @@ class ThreadsCrawler:
                             "post_date": post_date_str
                         })
                         new_posts_count += 1
-                # 延後 cutoff_date 的設定時機
+
                 if self.cutoff_date is None and len(self.all_posts_raw) >= 5:
                     self.update_cutoff_date()
                 
                 if self.cutoff_date and dt < self.cutoff_date:
-                    print(f"⏱️  發現超過截止日期的貼文: {dt.strftime('%Y-%m-%d %H:%M')}")
+                    self._log(f"⏱️  發現超過截止日期的貼文: {dt.strftime('%Y-%m-%d %H:%M')}")
                     should_stop = True
                     break
                 
@@ -350,80 +309,71 @@ class ThreadsCrawler:
     def crawl_user(self):
         """爬取用戶資料"""
         url = f"https://www.threads.com/@{self.username}"
-        print(f"正在訪問: {url}")
+        self._log(f"正在訪問: {url}")
         self.driver.get(url)
         time.sleep(5)
         
-        print("正在提取用戶資訊...")
+        self._log("正在提取用戶資訊...")
         self.extract_user_info()
-        print(f"✓ 用戶名稱: {self.display_name}")
-        print(f"✓ 帳號: @{self.username}")
-        print(f"✓ 簡介: {self.bio[:50]}..." if len(self.bio) > 50 else f"✓ 簡介: {self.bio}")
-        print()
+        self._log(f"✓ 用戶名稱: {self.display_name}")
+        self._log(f"✓ 帳號: @{self.username}")
+        self._log(f"✓ 簡介: {self.bio[:50]}..." if len(self.bio) > 50 else f"✓ 簡介: {self.bio}")
         
         seen_posts = set()
-        max_scroll_attempts = 100  # 增加滾動次數上限
+        max_scroll_attempts = 100
         scroll_attempts = 0
         no_new_posts_count = 0
         
-        print("開始抓取貼文...\n")
+        self._log("開始抓取貼文...\n")
         
         while scroll_attempts < max_scroll_attempts:
             new_posts, should_stop = self.extract_posts_with_cutoff(seen_posts)
             
             if should_stop:
-                print(f"✓ 已達截止日期，停止抓取\n")
+                self._log(f"✓ 已達截止日期，停止抓取\n")
                 break
             
             if new_posts == 0:
                 no_new_posts_count += 1
-                # 增加容忍度：從 3 改為 5
                 if no_new_posts_count >= 5:
-                    print(f"✓ 連續5次未發現新貼文，停止抓取\n")
+                    self._log(f"✓ 連續5次未發現新貼文，停止抓取\n")
                     break
             else:
                 no_new_posts_count = 0
-                print(f"📝 已抓取 {len(self.all_posts_raw)} 篇貼文...")
+                self._log(f"📝 已抓取 {len(self.all_posts_raw)} 篇貼文...")
             
-            # 增加等待時間：從 3 秒改為 4 秒
             self.scroll_and_wait(wait_time=4)
             scroll_attempts += 1
         
+        self._log(f"\n🔄 正在處理貼文...")
+        self._log(f"✓ 原始收集貼文數: {len(self.all_posts_raw)}")
         
-        # ===== 先排序所有貼文，再以最新貼文往回推14天 =====
-        print(f"\n🔄 正在處理貼文...")
-        print(f"✓ 原始收集貼文數: {len(self.all_posts_raw)}")
-        
-        # 步驟1: 先按照時間排序（由新到舊）
         self.all_posts_raw.sort(key=lambda x: datetime.strptime(x["post_date"], "%Y-%m-%d %H:%M"), reverse=True)
-        print(f"✓ 已按時間排序（由新到舊）")
+        self._log(f"✓ 已按時間排序（由新到舊）")
         
-        # 步驟2: 找出最新貼文的時間
         if len(self.all_posts_raw) > 0:
             latest_post_date = datetime.strptime(self.all_posts_raw[0]["post_date"], "%Y-%m-%d %H:%M")
             cutoff_date = latest_post_date - timedelta(days=14)
             
-            print(f"📅 最新貼文時間: {latest_post_date.strftime('%Y-%m-%d %H:%M')}")
-            print(f"📅 14天前時間: {cutoff_date.strftime('%Y-%m-%d %H:%M')}")
+            self._log(f"📅 最新貼文時間: {latest_post_date.strftime('%Y-%m-%d %H:%M')}")
+            self._log(f"📅 14天前時間: {cutoff_date.strftime('%Y-%m-%d %H:%M')}")
             
-            # 步驟3: 過濾出14天內的貼文
             filtered_posts = []
             for post in self.all_posts_raw:
                 post_date = datetime.strptime(post["post_date"], "%Y-%m-%d %H:%M")
                 if post_date >= cutoff_date:
                     filtered_posts.append(post)
             
-            print(f"✓ 篩選後14天內貼文數: {len(filtered_posts)}")
+            self._log(f"✓ 篩選後14天內貼文數: {len(filtered_posts)}")
             
-            # 顯示時間範圍
             if len(filtered_posts) > 0:
                 oldest_in_range = datetime.strptime(filtered_posts[-1]["post_date"], "%Y-%m-%d %H:%M")
-                print(f"✓ 貼文時間範圍: {oldest_in_range.strftime('%Y-%m-%d %H:%M')} ~ {latest_post_date.strftime('%Y-%m-%d %H:%M')}\n")
+                self._log(f"✓ 貼文時間範圍: {oldest_in_range.strftime('%Y-%m-%d %H:%M')} ~ {latest_post_date.strftime('%Y-%m-%d %H:%M')}\n")
         else:
             filtered_posts = []
             cutoff_date = None
             latest_post_date = None
-            print("⚠️ 未抓取到任何貼文\n")
+            self._log("⚠️ 未抓取到任何貼文\n")
         
         self.driver.quit()
         
