@@ -306,6 +306,24 @@ class ThreadsCrawler:
         
         return new_posts_count, should_stop
 
+    def check_user_exists(self):
+        """檢查頁面是否顯示『頁面不存在』等關鍵字"""
+        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+        
+        # 根據附圖，檢查頁面是否包含特定的錯誤訊息文字
+        not_found_text = ["亂晃的人不一定是迷路，但這個頁面真的走丟了", "連結失效或頁面不存在。請返回以繼續探索。","Page not found", "Sorry, this page isn't available"]
+        
+        page_text = soup.get_text()
+        for text in not_found_text:
+            if text in page_text:
+                return False
+        
+        # 也可以檢查是否有特定的「返回」按鈕
+        if soup.find('div', string=re.compile("返回")):
+            return False
+            
+        return True
+
     def crawl_user(self):
         """爬取用戶資料"""
         url = f"https://www.threads.com/@{self.username}"
@@ -313,6 +331,13 @@ class ThreadsCrawler:
         self.driver.get(url)
         time.sleep(5)
         
+        # --- 新增判斷 ---
+        if not self.check_user_exists():
+            self._log(f"⚠ 錯誤：帳號 @{self.username} 不存在或已設為私人。")
+            self.driver.quit()
+            return {"error": "user_not_found"} 
+        # ----------------
+
         self._log("正在提取用戶資訊...")
         self.extract_user_info()
         self._log(f"✓ 用戶名稱: {self.display_name}")

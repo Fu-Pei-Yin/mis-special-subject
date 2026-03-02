@@ -91,7 +91,12 @@ def analyze(request):
                 cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl"
             )
             user_data = crawler.crawl_user()
-            cache.set(data_key, user_data, timeout=300)
+            # --- 修改處：判別 crawler 回傳的 error 狀態 ---
+            if isinstance(user_data, dict) and user_data.get("error") == "user_not_found":
+                cache.set(error_key, "user_not_found", timeout=300)
+            else:
+                cache.set(data_key, user_data, timeout=300)
+            # ------------------------------------------
         except (ReadTimeout, TimeoutError, socket.timeout, ConnectionError):
             cache.set(error_key, "network_error", timeout=300)
         except Exception as e:
@@ -140,10 +145,12 @@ def result(request):
         error_key = f"crawl_error_{username}"
 
         error = cache.get(error_key)
-        if error == "network_error":
+        if error == "user_not_found":
+            return render(request, "errors/user_not_found.html", {"username": username})
+        elif error == "network_error":
             return render(request, "errors/system_busy.html")
-        if error:
-            return render(request, "errors/error.html")
+        elif error == "unknown_error":
+             return render(request, "errors/error.html")
 
         user_data = cache.get(data_key)
 
