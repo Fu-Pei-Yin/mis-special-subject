@@ -13,17 +13,17 @@ MODEL = "gemini-2.5-flash"
 load_dotenv()
 
 API_KEYS = [
-    os.getenv("PRO_API_KEY"),
     os.getenv("MIS1_GEMINI_KEY"),
+    os.getenv("TEST1_GEMINI_KEY"),
     os.getenv("TEST2_GEMINI_KEY"),
     os.getenv("TEST3_GEMINI_KEY"),
     os.getenv("TEST4_GEMINI_KEY"),
     os.getenv("FU2_API_KEY"),
     os.getenv("FU_API_KEY"),
-    os.getenv("MISEE_API_KEY"),
-    os.getenv("TEST1_GEMINI_KEY"),
     os.getenv("CAMP_API_KEY"),
+    os.getenv("MISEE_API_KEY"),
     os.getenv("GOOGLE_API_KEY"),
+    os.getenv("PRO_API_KEY"),
 ]
 
 invalid_keys = set()

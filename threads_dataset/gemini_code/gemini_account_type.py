@@ -13,17 +13,17 @@ load_dotenv()
 # Multiple API Key Pool 設定
 # ==========================================
 API_KEYS = [
-    os.getenv("PRO_API_KEY"),
     os.getenv("MIS1_GEMINI_KEY"),
+    os.getenv("TEST1_GEMINI_KEY"),
     os.getenv("TEST2_GEMINI_KEY"),
     os.getenv("TEST3_GEMINI_KEY"),
     os.getenv("TEST4_GEMINI_KEY"),
     os.getenv("FU2_API_KEY"),
     os.getenv("FU_API_KEY"),
-    os.getenv("MISEE_API_KEY"),
-    os.getenv("TEST1_GEMINI_KEY"),
     os.getenv("CAMP_API_KEY"),
+    os.getenv("MISEE_API_KEY"),
     os.getenv("GOOGLE_API_KEY"),
+    os.getenv("PRO_API_KEY"),
 ]
 
 current_key_index = 0
