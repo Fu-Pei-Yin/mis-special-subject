@@ -47,7 +47,9 @@ def is_valid_dot_rule(username: str) -> bool:
     if ".." in username:
         return False
     return True
-
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent
+COOKIE_PATH = BASE_DIR / "../crawler/cookies.pkl"
 def analyze(request):
     if request.method != "POST":
         return redirect("index")
@@ -88,7 +90,7 @@ def analyze(request):
         try:
             crawler = ThreadsCrawler(username, headless=True, progress_callback=on_progress)
             crawler.auto_login(
-                cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl"
+                cookie_path=COOKIE_PATH
             )
             user_data = crawler.crawl_user()
             # --- 修改處：判別 crawler 回傳的 error 狀態 ---
