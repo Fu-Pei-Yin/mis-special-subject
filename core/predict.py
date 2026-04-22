@@ -2,7 +2,7 @@
 predict.py（更新版）
 整合說明性模組，predict_username 現在同時回傳機率與 ExplainResult。
 """
-
+from pathlib import Path
 import torch
 from sentence_transformers import SentenceTransformer
 from core.dataset import ThreadsInferenceDataset
@@ -10,7 +10,8 @@ from model.model import UserLogicClassifier
 from core.explain import DepressionModelExplainer, ExplainResult
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = "C:/Users/USER/Desktop/課程/專題/threads_depression_web/model/fold_1_best.pt"
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH   = BASE_DIR / "../model/fold_1_best.pt"
 
 
 def _load_model_and_embed():

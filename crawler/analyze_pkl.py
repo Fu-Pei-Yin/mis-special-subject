@@ -1,7 +1,9 @@
 import pickle
-
+from pathlib import Path
 # 讀取 pkl 檔案
-with open('C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl', 'rb') as f:
+BASE_DIR = Path(__file__).resolve().parent
+COOKIE_PATH = BASE_DIR / "cookies.pkl"
+with open(COOKIE_PATH, 'rb') as f:
     
     data = pickle.load(f)
 
