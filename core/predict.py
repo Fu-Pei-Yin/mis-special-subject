@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 from sentence_transformers import SentenceTransformer
 from core.dataset import ThreadsInferenceDataset
-from model.model import UserLogicClassifier
+from model.model import GeneralBiLSTMClassifier
 from core.explain import DepressionModelExplainer, ExplainResult
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -16,10 +16,10 @@ MODEL_PATH   = BASE_DIR / "../model/fold_1_best.pt"
 
 def _load_model_and_embed():
     embed_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    model = UserLogicClassifier(
+    model = GeneralBiLSTMClassifier(
         embed_dim=384,
         num_num_feats=6,
-        num_logic_feats=5,
+        # num_logic_feats 已移除：GeneralBiLSTMClassifier 不接受此參數
     ).to(DEVICE)
     model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
     model.eval()
@@ -40,7 +40,6 @@ def predict_username(user_data: dict) -> float:
                 batch["posts"].to(DEVICE),
                 batch["bio"].to(DEVICE),
                 batch["num"].to(DEVICE),
-                batch["logic"].to(DEVICE),
             )
             return torch.sigmoid(logits).item()
 
@@ -57,7 +56,7 @@ def predict_with_explanation(
       - result.summary       : 自然語言說明摘要
       - result.top_posts     : 各貼文注意力與關鍵詞分析
       - result.feature_exp   : 數值與邏輯特徵（含 IG 歸因）
-      - result.attention_weights : 所有貼文的注意力分布
+      - result.post_importance : 所有貼文的重要性分布
 
     Args:
         user_data : 使用者資料（與原本格式相同）
@@ -75,17 +74,12 @@ def predict_with_explanation(
         model=model,
         embed_model=embed_model,
         device=DEVICE,
-        use_integrated_gradients=True,
-        ig_steps=50,
+        # use_integrated_gradients 與 ig_steps 已移除：
+        # explain.py 的 DepressionModelExplainer 不接受這兩個參數
     )
     result = explainer.explain(user_data)
 
     if verbose:
         print(result.summary)
-
-    if plot:
-        explainer.plot_attention(result)
-        explainer.plot_features(result)
-        explainer.plot_logic_radar(result)
 
     return result

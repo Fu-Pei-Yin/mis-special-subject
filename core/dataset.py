@@ -7,10 +7,8 @@ EMBED_DIM = 384
 MAX_POSTS = 32
 BASE_DIR = Path(__file__).resolve().parent
 NUM_SCALER_PATH   = BASE_DIR / "../model/numerical_scaler.pkl"
-LOGIC_SCALER_PATH = BASE_DIR / "../model/logic_scaler.pkl"
 
 numerical_scaler = joblib.load(NUM_SCALER_PATH)
-logic_scaler     = joblib.load(LOGIC_SCALER_PATH)
 
 # ══════════════════════════════════════════════════════════════
 #  詞庫：模組層級常數，供 dataset.py 內部與 views.py 共同使用
@@ -70,7 +68,15 @@ BIO_RISK_WORDS = [
     "心理治療", "抗憂鬱劑", "精神科醫生", "藥物", "副作用", "住院", "血清素"
 ]
 
-
+def extract_logic_features(post_list, bio): 
+    """ 回傳 5 維邏輯特徵： [neg_count, pos_count, logic_score, bio_flag(0/1), neg_ratio(0~1)] 詞庫統一引用模組層級常數 NEG_WORDS / POS_WORDS / BIO_RISK_WORDS """ 
+    neg_count = sum(sum(w in p for w in NEG_WORDS) for p in post_list) 
+    pos_count = sum(sum(w in p for w in POS_WORDS) for p in post_list) 
+    logic_score = neg_count - pos_count 
+    bio_flag = 1 if any(w in str(bio) for w in BIO_RISK_WORDS) else 0 
+    total = neg_count + pos_count 
+    neg_ratio = neg_count / total if total > 0 else 0.0 
+    return [neg_count, pos_count, logic_score, bio_flag, neg_ratio]
 def compute_user_numeric_features(post_texts, bio, post_dates):
     """
     回傳 6 維數值特徵：
@@ -98,26 +104,11 @@ def compute_user_numeric_features(post_texts, bio, post_dates):
     return [post_count, avg_post_len, bio_len, night_ratio, max_post_len, min_post_len]
 
 
-def extract_logic_features(post_list, bio):
-    """
-    回傳 5 維邏輯特徵：
-      [neg_count, pos_count, logic_score, bio_flag(0/1), neg_ratio(0~1)]
-
-    詞庫統一引用模組層級常數 NEG_WORDS / POS_WORDS / BIO_RISK_WORDS
-    """
-    neg_count   = sum(sum(w in p for w in NEG_WORDS) for p in post_list)
-    pos_count   = sum(sum(w in p for w in POS_WORDS) for p in post_list)
-    logic_score = neg_count - pos_count
-    bio_flag    = 1 if any(w in str(bio) for w in BIO_RISK_WORDS) else 0
-    total       = neg_count + pos_count
-    neg_ratio   = neg_count / total if total > 0 else 0.0
-
-    return [neg_count, pos_count, logic_score, bio_flag, neg_ratio]
 
 
 class ThreadsInferenceDataset(Dataset):
     def __init__(self, users_data, embed_model):
-        self.post_embs, self.bio_embs, self.numeric_feats, self.logic_feats = [], [], [], []
+        self.post_embs, self.bio_embs, self.numeric_feats= [], [], []
 
         for user in users_data:
             if not isinstance(user, dict):
@@ -146,20 +137,15 @@ class ThreadsInferenceDataset(Dataset):
 
             bio_emb    = np.array(embed_model.encode(bio), dtype=np.float32)
             num_feat   = compute_user_numeric_features(posts, bio, post_dates)
-            logic_feat = extract_logic_features(posts, bio)
 
             self.post_embs.append(post_emb)
             self.bio_embs.append(bio_emb)
             self.numeric_feats.append(num_feat)
-            self.logic_feats.append(logic_feat)
 
         self.post_embs     = torch.tensor(np.array(self.post_embs), dtype=torch.float32)
         self.bio_embs      = torch.tensor(np.array(self.bio_embs),  dtype=torch.float32)
         self.numeric_feats = torch.tensor(
             numerical_scaler.transform(self.numeric_feats), dtype=torch.float32
-        )
-        self.logic_feats   = torch.tensor(
-            logic_scaler.transform(self.logic_feats), dtype=torch.float32
         )
 
     def __len__(self):
@@ -170,5 +156,4 @@ class ThreadsInferenceDataset(Dataset):
             "posts": self.post_embs[idx],
             "bio":   self.bio_embs[idx],
             "num":   self.numeric_feats[idx],
-            "logic": self.logic_feats[idx],
         }
