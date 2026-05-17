@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>分析結果報告 - MINDGUARD</title>
+    <title>分析結果 - MINDGUARD</title>
     <link rel="stylesheet" href="{% static 'css/header.css' %}">
     <link rel="stylesheet" href="{% static 'css/analyze_result.css' %}">
     <link rel="stylesheet" href="{% static 'css/footer.css' %}">
@@ -14,7 +14,7 @@
     <main class="container">
         <div class="result-header">
             <div class="title-area">
-                <h1>分析結果報告 <small>• AI BEHAVIORAL DIAGNOSTIC SYSTEM</small></h1>
+                <h1>分析結果 <small>• AI BEHAVIORAL DIAGNOSTIC SYSTEM</small></h1>
             </div>
             <form method="POST" action="{% url 'suggest_report' %}">
                 {% csrf_token %}
@@ -23,7 +23,7 @@
                 <input type="hidden" name="risk_level" value="{{ risk_level }}">
                 <input type="hidden" name="Nighttime_activity" value="{{ Nighttime_activity }}">
                 <input type="hidden" name="emotional_negativity" value="{{ emotional_negativity }}">
-                <button type="submit" class="action-btn">📄 生成完整臨床建議</button>
+                <button type="submit" class="action-btn">📄 可解釋性指標說明</button>
             </form>
         </div>
         <section class="user-profile-card">
@@ -48,7 +48,7 @@
         <div class="dashboard-grid">
             <aside class="left-panel">
                 <div class="card-box">
-                    <h3 class="card-title">系統總體風險評估</h3>
+                    <h3 class="card-title">總體風險評估</h3>
                     <div class="chart-container">
                         <div class="bar-group">
                             <div class="bar-wrapper">
@@ -68,7 +68,7 @@
                             <div class="bar-wrapper">
                                 <div class="bar orange" data-height="{{ risk_prob }}"></div>
                             </div>
-                            <span class="bar-label">憂鬱傾向機率</span>
+                            <span class="bar-label">憂鬱風險機率</span>
                             <span class="bar-value">{{ risk_prob }}%</span>
                         </div>
                     </div>
@@ -95,7 +95,7 @@
                     </div>
                     <div class="insight-item">
                         <div class="insight-label">
-                            <i class="icon-moon">😔</i> 憂鬱傾向機率
+                            <i class="icon-moon">😔</i> 憂鬱風險機率
                         </div>
                         <div class="insight-value">{{ risk_prob }}%</div>
                         <div class="mini-progress">
@@ -106,7 +106,7 @@
             </aside>
             <section class="right-panel">
                 <div class="panel-header">
-                    <h3>兩週動態樣本分析 (共 {{ posts|length }} 則)</h3>
+                    <h3>兩週內完整貼文 (共 {{ posts|length }} 則)</h3>
                     <span class="sync-time">SYNCED AT {{ now }}</span>
                 </div>
                 {% for post in posts %}
