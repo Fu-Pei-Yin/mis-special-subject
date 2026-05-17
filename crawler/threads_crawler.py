@@ -12,24 +12,36 @@ def safe_parse_datetime(date_text):
     """安全解析日期時間 - 支援多種格式"""
     if not date_text:
         return None
-    
+
+    # 優先用 ISO 格式（datetime 屬性），最穩定
     try:
-        parts = date_text.split(" ")
-        if len(parts) >= 3:
-            date_raw = parts[0]
-            time_raw = parts[2]
+        dt = datetime.fromisoformat(date_text.replace('Z', '+00:00'))
+        # 轉成 naive datetime（去掉時區）
+        if dt.tzinfo is not None:
+            from datetime import timezone
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            # 轉成台灣時間（UTC+8）
+            dt = dt + timedelta(hours=8)
+        return dt
+    except:
+        pass
+
+    # 備用：解析中文 title 格式
+    # 可能格式：'2026年5月17日 上午11:32' 或 '2026年5月17日星期日 上午11:32'
+    try:
+        # 移除星期（若存在）：找「日星期」後的星期字樣
+        cleaned = re.sub(r'星期[一二三四五六日]', '', date_text).strip()
+        # cleaned = '2026年5月17日 上午11:32'
+        parts = cleaned.split(' ')
+        if len(parts) >= 2:
+            date_raw = parts[0]   # '2026年5月17日'
+            time_raw = parts[1]   # '上午11:32' 或 '下午8:34'
             date_combined = f"{date_raw} {time_raw}".replace("上午", "AM").replace("下午", "PM")
             dt = datetime.strptime(date_combined, "%Y年%m月%d日 %p%I:%M")
             return dt
     except:
         pass
-    
-    try:
-        dt = datetime.fromisoformat(date_text.replace('Z', '+00:00'))
-        return dt
-    except:
-        pass
-    
+
     return None
 
 def contains_invalid_fraction(text):
@@ -42,16 +54,38 @@ def contains_invalid_fraction(text):
 def extract_post_content(post_container, username):
     try:
         content_candidates = []
-        
+
+        # 策略一：從已知的內容 div 往下找 x1lliihq span（根據 HTML 圖片確認的結構）
+        # 修正：原本只賦值給 text 變數，從未 append 進 content_candidates
         main_content_divs = post_container.find_all('div', class_=lambda x: x and any(
             marker in str(x) for marker in ['x1iorvi4', 'x78zum5', 'xdt5ytf']
         ))
-        
         for div in main_content_divs:
             spans = div.find_all('span', class_=lambda x: x and 'x1lliihq' in str(x))
             for span in spans:
                 text = span.get_text(strip=True)
-        
+                if text:  # ← 修正：補上 append，原本漏掉這行
+                    content_candidates.append(text)
+
+        # 策略二：直接找所有 x1lliihq span，取其內層子 span 的文字
+        # 根據 HTML 圖片：x1lliihq span 內有 ::before、子 <span>（實際文字）、::after
+        # 不能限制「葉節點」，要取子 span 的 get_text()
+        if not content_candidates:
+            target_spans = post_container.find_all('span', class_=lambda x: x and 'x1lliihq' in str(x))
+            for span in target_spans:
+                # 優先取直接子 span 的文字（避免重複抓外層）
+                child_spans = span.find_all('span', recursive=False)
+                if child_spans:
+                    for child in child_spans:
+                        text = child.get_text(strip=True)
+                        if text:
+                            content_candidates.append(text)
+                else:
+                    text = span.get_text(strip=True)
+                    if text:
+                        content_candidates.append(text)
+
+        # 策略三：fallback — 所有 span 掃描，過濾 UI 文字
         if not content_candidates:
             all_spans = post_container.find_all('span')
             for span in all_spans:
@@ -146,7 +180,6 @@ class ThreadsCrawler:
         self.all_posts_raw = []
         self.cutoff_date = None
         self.first_non_pinned_date = None
-        # ✅ 新增：進度回呼函式，預設使用 print
         self.progress_callback = progress_callback or (lambda msg: print(msg))
         
         options = webdriver.ChromeOptions()
@@ -161,12 +194,15 @@ class ThreadsCrawler:
         self.wait = WebDriverWait(self.driver, 20)
 
     def _log(self, msg):
-        """統一的進度回報方法，取代直接呼叫 print"""
         self.progress_callback(msg)
 
-    def scroll_and_wait(self, wait_time=2):
+    def scroll_and_wait(self, wait_time=3):
+        """
+        修正 Bug 4：scroll 後加入明確等待，確保新內容有機會渲染。
+        同時回傳是否頁面有增高（用於判斷是否已到底部）。
+        """
         last_height = self.driver.execute_script("return document.body.scrollHeight")
-        self.driver.execute_script("window.scrollBy(0, window.innerHeight*2);")
+        self.driver.execute_script("window.scrollBy(0, window.innerHeight * 2);")
         time.sleep(wait_time)
         new_height = self.driver.execute_script("return document.body.scrollHeight")
         return new_height != last_height
@@ -219,124 +255,206 @@ class ThreadsCrawler:
             self._log(f"📅 抓取截止日期: {self.cutoff_date.strftime('%Y-%m-%d %H:%M')}")
             break
 
+    def wait_for_posts_to_load(self, timeout=15):
+        """
+        修正 Bug 3：等待頁面中至少出現一個 <time> 元素，
+        確認貼文已渲染後再開始抓取，避免在空頁面上爬取。
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((By.TAG_NAME, "time"))
+            )
+            return True
+        except TimeoutException:
+            self._log("⚠️ 等待貼文載入超時，頁面可能為空或載入失敗")
+            return False
+
     def extract_posts_with_cutoff(self, seen_posts):
         new_posts_count = 0
         should_stop = False
-        
-        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-        articles = soup.find_all('article')
-        
-        if not articles:
-            time_elements = soup.find_all('time')
-        else:
-            time_elements = []
-            for article in articles:
-                time_elem = article.find('time')
-                if time_elem:
-                    time_elements.append(time_elem)
-        
-        for time_elem in time_elements:
+
+        # 用 JavaScript 直接從已渲染的 DOM 抓取貼文，
+        # 避免 page_source 的靜態 HTML 與實際 DOM class 不符的問題
+        js_result = self.driver.execute_script("""
+        const results = [];
+        const timeElements = document.querySelectorAll('time[datetime]');
+
+        timeElements.forEach(timeEl => {
+            try {
+                const datetime = timeEl.getAttribute('datetime');
+
+                // 往上找貼文根節點：找到包含貼文內容的最近 div
+                // 策略：從 time 往上，找到第一個 role=link 的 a 標籤的父層
+                // 再繼續往上找有實質文字內容（>20字）的節點
+                let node = timeEl;
+                let postText = '';
+                let found = false;
+
+                // 先往上找到 time 所在的 a[role=link] 或直接的 link 容器
+                for (let i = 0; i < 30; i++) {
+                    node = node.parentElement;
+                    if (!node) break;
+
+                    // 找到貼文層級的容器：有 data-pressable-container 屬性
+                    if (node.getAttribute('data-pressable-container') === 'true') {
+                        // 從這個容器往上一層，找兄弟節點中的貼文文字
+                        const parent = node.parentElement;
+                        if (parent) {
+                            // 找 parent 下所有直接子 div，取文字最長的
+                            let maxLen = 0;
+                            let bestEl = null;
+                            parent.querySelectorAll('div > span, div > div > span').forEach(el => {
+                                const txt = el.innerText || el.textContent || '';
+                                if (txt.length > maxLen && txt.length > 10) {
+                                    maxLen = txt.length;
+                                    bestEl = el;
+                                }
+                            });
+                            if (bestEl) {
+                                postText = bestEl.innerText || bestEl.textContent || '';
+                                found = true;
+                            }
+                        }
+                        break;
+                    }
+
+                    // 備用：找到包含 data-interactive-id 的容器
+                    if (node.getAttribute('data-interactive-id')) {
+                        postText = node.innerText || node.textContent || '';
+                        found = true;
+                        break;
+                    }
+                }
+
+                // 最後備用：找最近的大型文字區塊
+                if (!found || postText.length < 5) {
+                    node = timeEl;
+                    for (let i = 0; i < 15; i++) {
+                        node = node.parentElement;
+                        if (!node) break;
+                        const txt = node.innerText || '';
+                        // 取第一個文字長度超過 20 字的祖先節點
+                        if (txt.length > 20) {
+                            postText = txt;
+                            break;
+                        }
+                    }
+                }
+
+                if (postText && postText.length > 0) {
+                    results.push({
+                        datetime: datetime,
+                        text: postText
+                    });
+                }
+            } catch(e) {}
+        });
+
+        return results;
+        """)
+
+        self._log(f"  [debug] js_result count={len(js_result) if js_result else 0}")
+
+        if not js_result:
+            return 0, False
+
+        for item in js_result:
             try:
-                date_text = time_elem.get('title', '') or time_elem.get('datetime', '')
-                dt = safe_parse_datetime(date_text)
-                
+                datetime_str = item.get('datetime', '')
+                raw_text = item.get('text', '')
+
+                dt = safe_parse_datetime(datetime_str)
                 if not dt:
                     continue
-                
-                post_container = time_elem.find_parent('article')
-                
-                if not post_container:
-                    current = time_elem
-                    for _ in range(15):
-                        current = current.parent
-                        if not current:
-                            break
-                        if current.name == 'div' and current.get('class'):
-                            classes = ' '.join(current.get('class', []))
-                            if 'x1n2onr6' in classes:
-                                post_container = current
-                                break
-                
-                if not post_container:
+
+                # 清理文字：移除 UI 雜訊行
+                ui_patterns = [
+                    r'^\d+\s*(分鐘|小時|天|週|個月)前?$',
+                    r'^已驗證$',
+                    r'^\d+\s*則留言$',
+                    r'^\d+\s*次分享$',
+                    r'^查看其他\d+\s*則回覆$',
+                    r'^查看更多$',
+                    r'^\d+/\d+$',
+                    r'^已釘選$',
+                ]
+                lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+                lines = [l for l in lines if not any(re.match(p, l) for p in ui_patterns)]
+                post_text = '\n'.join(lines).strip()
+
+                if not post_text or len(post_text) < 5:
                     continue
-                
-                post_text = extract_post_content(post_container, self.username)
-                
-                if not post_text or len(post_text) < 1:
+                if "已釘選" in post_text:
                     continue
-                
                 if contains_invalid_fraction(post_text):
-                    self._log(f"⏭️  跳過包含無效分數格式的貼文 (發文時間: {dt.strftime('%Y-%m-%d %H:%M')})")
                     continue
-                
-                if len(self.all_posts_raw) == 0 and contains_invalid_fraction(post_text):
-                    self._log(f"⏭️  第一篇貼文包含無效分數格式，跳過")
-                    continue
-                
-                seen_posts = set()
+
                 post_signature = get_post_signature(post_text)
                 if post_signature in seen_posts:
                     continue
                 seen_posts.add(post_signature)
 
-                seen_posts.add(post_signature)
                 post_date_str = dt.strftime("%Y-%m-%d %H:%M")
-                if post_text != "" and not re.match(r'^(?!1/\d+$)\d+/\d+$', post_text):
-                    exists = any(
-                        item["content"] == post_text and item["post_date"] == post_date_str
-                        for item in self.all_posts_raw
-                    )
-                    if not exists:
-                        self.all_posts_raw.append({
-                            "content": post_text,
-                            "post_date": post_date_str
-                        })
-                        new_posts_count += 1
+                exists = any(
+                    item2["content"] == post_text and item2["post_date"] == post_date_str
+                    for item2 in self.all_posts_raw
+                )
+                if not exists:
+                    self.all_posts_raw.append({
+                        "content": post_text,
+                        "post_date": post_date_str
+                    })
+                    new_posts_count += 1
 
                 if self.cutoff_date is None and len(self.all_posts_raw) >= 5:
                     self.update_cutoff_date()
-                
+
                 if self.cutoff_date and dt < self.cutoff_date:
                     self._log(f"⏱️  發現超過截止日期的貼文: {dt.strftime('%Y-%m-%d %H:%M')}")
                     should_stop = True
                     break
-                
-            except Exception as e:
+
+            except Exception:
                 continue
-        
+
         return new_posts_count, should_stop
 
     def check_user_exists(self):
-        """檢查頁面是否顯示『頁面不存在』等關鍵字"""
         soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         
-        # 根據附圖，檢查頁面是否包含特定的錯誤訊息文字
-        not_found_text = ["亂晃的人不一定是迷路，但這個頁面真的走丟了", "連結失效或頁面不存在。請返回以繼續探索。","Page not found", "Sorry, this page isn't available"]
+        not_found_text = [
+            "亂晃的人不一定是迷路，但這個頁面真的走丟了",
+            "連結失效或頁面不存在。請返回以繼續探索。",
+            "Page not found",
+            "Sorry, this page isn't available"
+        ]
         
         page_text = soup.get_text()
         for text in not_found_text:
             if text in page_text:
                 return False
         
-        # 也可以檢查是否有特定的「返回」按鈕
         if soup.find('div', string=re.compile("返回")):
             return False
             
         return True
 
     def crawl_user(self):
-        """爬取用戶資料"""
         url = f"https://www.threads.com/@{self.username}"
         self._log(f"正在訪問: {url}")
         self.driver.get(url)
-        time.sleep(5)
-        
-        # --- 新增判斷 ---
+
+        self._log("等待頁面貼文載入...")
+        loaded = self.wait_for_posts_to_load(timeout=15)
+        if not loaded:
+            self._log("⚠️ 頁面載入異常，嘗試繼續...")
+        else:
+            time.sleep(2)
+
         if not self.check_user_exists():
             self._log(f"⚠ 錯誤：帳號 @{self.username} 不存在或已設為私人。")
             self.driver.quit()
-            return {"error": "user_not_found"} 
-        # ----------------
+            return {"error": "user_not_found"}
 
         self._log("正在提取用戶資訊...")
         self.extract_user_info()
@@ -344,6 +462,7 @@ class ThreadsCrawler:
         self._log(f"✓ 帳號: @{self.username}")
         self._log(f"✓ 簡介: {self.bio[:50]}..." if len(self.bio) > 50 else f"✓ 簡介: {self.bio}")
         
+        # seen_posts 在 crawl_user 層級統一維護，跨多次 scroll 共用
         seen_posts = set()
         max_scroll_attempts = 100
         scroll_attempts = 0
@@ -367,6 +486,7 @@ class ThreadsCrawler:
                 no_new_posts_count = 0
                 self._log(f"📝 已抓取 {len(self.all_posts_raw)} 篇貼文...")
             
+            # 修正 Bug 4：scroll 後等待時間加長至 4 秒，確保新內容渲染
             self.scroll_and_wait(wait_time=4)
             scroll_attempts += 1
         
@@ -414,42 +534,45 @@ class ThreadsCrawler:
 
 
 if __name__ == "__main__":
-    crawler = ThreadsCrawler("chloe____006", headless=False)
+    crawler = ThreadsCrawler("seiya_17storm", headless=False)
     crawler.auto_login(cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl")
     
     user_data = crawler.crawl_user()
     
-    print("=" * 70)
-    print("用戶資訊")
-    print("=" * 70)
-    print(f"用戶名稱: {user_data['display_name']}")
-    print(f"帳號: @{user_data['username']}")
-    print(f"簡介: {user_data['bio']}")
-    print()
-    
-    print("=" * 70)
-    print("抓取統計")
-    print("=" * 70)
-    print(f"總共收集貼文數: {user_data['total_posts_collected']}")
-    print(f"抓取截止日期: {user_data['cutoff_date']}")
-    print(f"兩週內貼文總數: {len(user_data['posts'])}")
-    print()
-    
-    if len(user_data['posts']) > 0:
-        print("=" * 70)
-        print("貼文內容（依時間由新到舊）")
-        print("=" * 70)
-        
-        for i, post in enumerate(user_data['posts'], 1):
-            print(f"\n【貼文 {i}】")
-            print(f"發文時間: {post['post_date']}")
-            print(f"內容:\n{post['content']}")
-            print("-" * 70)
+    if user_data.get("error"):
+        print(f"❌ 錯誤: {user_data['error']}")
     else:
-        print("⚠️ 未抓取到任何貼文")
-    
-    import json
-    output_file = f"{user_data['username']}_posts_clean.json"
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(user_data, f, ensure_ascii=False, indent=2)
-    print(f"\n✓ 資料已儲存至: {output_file}")
+        print("=" * 70)
+        print("用戶資訊")
+        print("=" * 70)
+        print(f"用戶名稱: {user_data['display_name']}")
+        print(f"帳號: @{user_data['username']}")
+        print(f"簡介: {user_data['bio']}")
+        print()
+        
+        print("=" * 70)
+        print("抓取統計")
+        print("=" * 70)
+        print(f"總共收集貼文數: {user_data['total_posts_collected']}")
+        print(f"抓取截止日期: {user_data['cutoff_date']}")
+        print(f"兩週內貼文總數: {len(user_data['posts'])}")
+        print()
+        
+        if len(user_data['posts']) > 0:
+            print("=" * 70)
+            print("貼文內容（依時間由新到舊）")
+            print("=" * 70)
+            
+            for i, post in enumerate(user_data['posts'], 1):
+                print(f"\n【貼文 {i}】")
+                print(f"發文時間: {post['post_date']}")
+                print(f"內容:\n{post['content']}")
+                print("-" * 70)
+        else:
+            print("⚠️ 未抓取到任何貼文")
+        
+        import json
+        output_file = f"{user_data['username']}_posts_clean.json"
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(user_data, f, ensure_ascii=False, indent=2)
+        print(f"\n✓ 資料已儲存至: {output_file}")
