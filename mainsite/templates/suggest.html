@@ -3,7 +3,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>MINDGUARD AI 可解釋性指標說明</title>
+  <title>MINDGUARD AI 臨床診斷報告</title>
   <style>
     :root {
       --bg-color: #f0f4f3;
@@ -169,7 +169,7 @@
     .warning li { font-size: 0.85rem; color: #707a78; margin-bottom: 12px; line-height: 1.6; }
 
     /* ═══════════════════════════════════════════════════
-       白箱可解釋性分析 (WHITE-BOX EXPLAINABILITY)
+       可視化可解釋性分析 (WHITE-BOX EXPLAINABILITY)
        ═══════════════════════════════════════════════════ */
 
     .whitebox-section {
@@ -562,7 +562,7 @@
     <!-- 頁首 -->
     <header class="report-header">
       <button class="back-btn">← 返回分析結果</button>
-      <h1>MINDGUARD AI 可解釋性指標說明</h1>
+      <h1>MINDGUARD AI 臨床診斷報告</h1>
       <button class="close-btn">✕</button>
     </header>
 
@@ -601,10 +601,10 @@
     </section>
 
     <!-- ════════════════════════════════════════════════
-         白箱可解釋性分析區塊
+         可視化可解釋性分析區塊
          ════════════════════════════════════════════════ -->
     <section class="whitebox-section">
-      <h2>白箱可解釋性分析 (WHITE-BOX EXPLAINABILITY)</h2>
+      <h2>可視化可解釋性分析 (WHITE-BOX EXPLAINABILITY)</h2>
 
       <!-- 六格指標 -->
       <div class="wb-grid">
@@ -680,7 +680,7 @@
       <!-- 備注說明 -->
       <div class="wb-note">
         <strong>White-box Explainability Note</strong>
-        本白箱分析直接基於可讀性規則（詞彙匹配、發文時段統計），不依賴神經網路黑箱推論，
+        本可視化分析直接基於可讀性規則（詞彙匹配、發文時段統計），不依賴神經網路黑箱推論，
         所有指標均可由人工逐項驗證。紅框貼文代表含一則以上負向風險詞彙。
         本系統輸出僅供輔助參考，最終臨床判斷請由專業人員複核。
       </div>
@@ -700,8 +700,8 @@
 
   <script>
     /* ═══════════════════════════════════════════════════════
-       MINDGUARD AI 可解釋性指標說明互動邏輯
-       包含：頁面導航、白箱可解釋性分析動態效果
+       MINDGUARD AI 臨床診斷報告互動邏輯
+       包含：頁面導航、可視化可解釋性分析動態效果
        ═══════════════════════════════════════════════════════ */
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -713,7 +713,7 @@
       if (backBtn)  backBtn.onclick  = () => window.history.back();
 
 
-      /* ── 2. 白箱指標：計數器動畫 ─────────────────── */
+      /* ── 2. 可視化指標：計數器動畫 ─────────────────── */
       function animateCounter(el) {
         const rawText = el.textContent.trim();
         const hasPlus = rawText.startsWith("+");
@@ -880,7 +880,7 @@
       });
 
 
-      /* ── 8. 白箱區塊：整體 Scroll 淡入 ─────────── */
+      /* ── 8. 可視化區塊：整體 Scroll 淡入 ─────────── */
       const wbSection = document.querySelector(".whitebox-section");
       if (wbSection && "IntersectionObserver" in window) {
         wbSection.style.opacity   = "0";
