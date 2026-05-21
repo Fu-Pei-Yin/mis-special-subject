@@ -1,7 +1,7 @@
 :root {
-  --bg-color: #f0f4f3; 
+  --bg-color: #f0f4f3;
   --text-primary: #3d4543;
-  --text-secondary: #707a78;
+  --text-secondary: #000000;
   --accent-healing: #a7bcaf;
   --accent-calm: #b0c4de;
   --accent-warm: #d9c5b2;
@@ -9,9 +9,8 @@
   --border-color: rgba(167, 188, 175, 0.15);
   --danger-color: #c07a7a;
   --warn-color: #c8a87a;
-  --safe-color: #7aad8a;
+  --safe-color: #82b185;
   --neg-color: #c07a7a;
-  --pos-color: #7aad8a;
 }
 
 /* ─── 全域佈局 ─────────────────────────────── */
@@ -159,12 +158,11 @@ body {
 .list-item p { font-size: 0.85rem; color: var(--text-secondary); margin: 0; line-height: 1.7; }
 
 .warning ul { padding-left: 18px; margin: 0; }
-.warning li { font-size: 0.85rem; color: #707a78; margin-bottom: 12px; line-height: 1.6; }
-
+.warning li { font-size: 0.85rem; color: #000000; margin-bottom: 12px; line-height: 1.6; }
 
 /* ═══════════════════════════════════════════════════
-   白箱可解釋性分析 (WHITE-BOX EXPLAINABILITY)
-   ═══════════════════════════════════════════════════ */
+    可視化可解釋性分析 (WHITE-BOX EXPLAINABILITY)
+    ═══════════════════════════════════════════════════ */
 
 .whitebox-section {
   margin: 0 40px 40px;
@@ -248,9 +246,9 @@ body {
 }
 
 /* 數值顏色狀態 */
-.wb-cell-value.safe  { color: var(--safe-color); }
-.wb-cell-value.warn  { color: var(--warn-color); }
-.wb-cell-value.danger{ color: var(--danger-color); }
+.wb-cell-value.safe   { color: var(--safe-color); }
+.wb-cell-value.warn   { color: var(--warn-color); }
+.wb-cell-value.danger { color: var(--danger-color); }
 .wb-cell-value:not(.safe):not(.warn):not(.danger) { color: var(--text-primary); }
 
 /* 底部色條根據狀態變色 */
@@ -305,13 +303,7 @@ body {
   gap: 8px;
 }
 
-.wb-posts-title::before {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--border-color);
-}
-
+.wb-posts-title::before,
 .wb-posts-title::after {
   content: "";
   flex: 1;
@@ -345,6 +337,7 @@ body {
   transition: all 0.25s ease;
   cursor: default;
   position: relative;
+  animation: fadeInUp 0.3s ease both;
 }
 
 .wb-post-item:hover {
@@ -480,7 +473,6 @@ body {
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.2s ease, transform 0.2s ease;
-  white-space: nowrap;
   max-width: 260px;
   white-space: normal;
   line-height: 1.5;
@@ -511,27 +503,31 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* ── 淡入動畫 ── */
+/* ── 動畫 ── */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.wb-post-item {
-  animation: fadeInUp 0.3s ease both;
+@keyframes shakeRisk {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-3px); }
+  50%  { transform: translateX(3px); }
+  75%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
 }
 
 /* ─── AI 臨床建議 ───────────────────────────── */
 .ai-box {
   background: #3d4543;
-  color: #f0f4f3;
+  color: #ffffff;
   padding: 40px;
   border-radius: 0 0 32px 32px;
   margin-top: 20px;
 }
 
-.ai-box h2 { color: var(--accent-healing); margin-bottom: 30px; }
-.ai-box h2::before { background: var(--accent-healing); }
+.ai-box h2 { color: #ffffff; margin-bottom: 30px; }
+.ai-box h2::before { background: #ffffff; }
 .ai-box ol { padding-left: 20px; margin: 0; }
 .ai-box li { margin-bottom: 18px; font-size: 0.95rem; opacity: 0.9; line-height: 1.8; }
 
