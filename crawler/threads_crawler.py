@@ -246,14 +246,12 @@ class ThreadsCrawler:
         if len(self.all_posts_raw) < 5:
             return
         
-        for i, post in enumerate(self.all_posts_raw):
-            post_date = datetime.strptime(post["post_date"], "%Y-%m-%d %H:%M")
-            self.first_non_pinned_date = post_date
-            self.cutoff_date = post_date - timedelta(days=14)
-            
-            self._log(f"📌 第一篇非置頂貼文: {self.first_non_pinned_date.strftime('%Y-%m-%d %H:%M')}")
-            self._log(f"📅 抓取截止日期: {self.cutoff_date.strftime('%Y-%m-%d %H:%M')}")
-            break
+        # 以今天（執行當下）往前推 14 天作為截止點
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.cutoff_date = today - timedelta(days=14)
+        
+        self._log(f"📅 今日日期: {today.strftime('%Y-%m-%d')}")
+        self._log(f"📅 抓取截止日期（今天往前14天）: {self.cutoff_date.strftime('%Y-%m-%d %H:%M')}")
 
     def wait_for_posts_to_load(self, timeout=15):
         """
@@ -498,10 +496,12 @@ class ThreadsCrawler:
         
         if len(self.all_posts_raw) > 0:
             latest_post_date = datetime.strptime(self.all_posts_raw[0]["post_date"], "%Y-%m-%d %H:%M")
-            cutoff_date = latest_post_date - timedelta(days=14)
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            cutoff_date = today - timedelta(days=14)
             
             self._log(f"📅 最新貼文時間: {latest_post_date.strftime('%Y-%m-%d %H:%M')}")
-            self._log(f"📅 14天前時間: {cutoff_date.strftime('%Y-%m-%d %H:%M')}")
+            self._log(f"📅 今日日期: {today.strftime('%Y-%m-%d')}")
+            self._log(f"📅 輸出截止日期（今天往前14天）: {cutoff_date.strftime('%Y-%m-%d %H:%M')}")
             
             filtered_posts = []
             for post in self.all_posts_raw:
@@ -534,7 +534,7 @@ class ThreadsCrawler:
 
 
 if __name__ == "__main__":
-    crawler = ThreadsCrawler("seiya_17storm", headless=False)
+    crawler = ThreadsCrawler("8yotea", headless=False)
     crawler.auto_login(cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl")
     
     user_data = crawler.crawl_user()
