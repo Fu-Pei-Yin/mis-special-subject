@@ -1,0 +1,10 @@
+{
+  "accuracy": 0.99,
+  "precision": 0.967741935483871,
+  "recall": 1.0,
+  "f1_score": 0.9836065573770492,
+  "auc_roc": 1.0,
+  "total_users": 100,
+  "depression_cases": 30,
+  "normal_cases": 70
+}
