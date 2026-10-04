@@ -1,0 +1,32 @@
+{
+  "embed_model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "embed_dim": 384,
+  "max_posts": 32,
+  "n_folds": 5,
+  "epochs": 30,
+  "learning_rate": 0.001,
+  "weight_decay": 0.0001,
+  "early_stopping_patience": 5,
+  "augmentation_prob": 0.3,
+  "logic_features": [
+    "neg_count",
+    "pos_count",
+    "logic_score",
+    "bio_flag",
+    "neg_ratio"
+  ],
+  "numeric_features": [
+    "post_count",
+    "avg_post_len",
+    "bio_len",
+    "night_ratio",
+    "max_post_len",
+    "min_post_len"
+  ],
+  "average_performance": {
+    "accuracy": 0.9224184589089873,
+    "f1_score": 0.8766988056654474,
+    "precision": 0.9118657018657019,
+    "recall": 0.8450742240215924
+  }
+}
