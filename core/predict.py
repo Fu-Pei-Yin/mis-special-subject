@@ -52,7 +52,7 @@ def predict_with_explanation(
     """
     新版介面：回傳完整 ExplainResult，包含：
       - result.risk_prob     : 風險機率 (float)
-      - result.risk_level    : "高風險" / "需觀察" / "低風險"
+      - result.risk_level    : "高風險" / "中等風險" / "低風險"
       - result.summary       : 自然語言說明摘要
       - result.top_posts     : 各貼文注意力與關鍵詞分析
       - result.feature_exp   : 數值與邏輯特徵（含 IG 歸因）

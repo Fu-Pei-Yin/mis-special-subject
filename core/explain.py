@@ -87,10 +87,10 @@ def integrated_gradients(
 # ──────────────────────────────────────────────
 
 def _risk_level(prob: float) -> str:
-    if prob >= 0.5:
+    if prob >= 0.65:
         return "高風險"
-    elif prob >= 0.25:
-        return "需觀察"
+    elif prob >= 0.40:
+        return "中等風險"
     return "低風險"
 
 

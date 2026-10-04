@@ -1,7 +1,7 @@
 :root {
   --bg-color: #f0f4f3;
   --text-primary: #3d4543;
-  --text-secondary: #000000;
+  --text-secondary: #707a78;
   --accent-healing: #a7bcaf;    /* 鼠尾草綠 */
   --accent-calm: #b0c4de;       /* 靜謐藍 */
   --accent-warm: #d9c5b2;       /* 莫蘭迪米 */
@@ -212,7 +212,7 @@ a.external-link:hover {
 }
 
 .panel-header h3 { margin: 0; font-size: 1.1rem; color: #2f3635; }
-.sync-time { font-size: 0.7rem; color: #000000; letter-spacing: 1px; }
+.sync-time { font-size: 0.65rem; color: #adb5b3; letter-spacing: 1px; }
 
 .post-card {
   background: white;

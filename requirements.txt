@@ -7,4 +7,3 @@ selenium
 beautifulsoup4
 langid
 numpy
-requests

@@ -47,9 +47,7 @@ def is_valid_dot_rule(username: str) -> bool:
     if ".." in username:
         return False
     return True
-from pathlib import Path
-BASE_DIR = Path(__file__).resolve().parent
-COOKIE_PATH = BASE_DIR / "../crawler/cookies.pkl"
+
 def analyze(request):
     if request.method != "POST":
         return redirect("index")
@@ -90,7 +88,7 @@ def analyze(request):
         try:
             crawler = ThreadsCrawler(username, headless=True, progress_callback=on_progress)
             crawler.auto_login(
-                cookie_path=COOKIE_PATH
+                cookie_path="C:/Users/USER/Desktop/課程/專題/threads_depression_web/crawler/cookies.pkl"
             )
             user_data = crawler.crawl_user()
             # --- 修改處：判別 crawler 回傳的 error 狀態 ---
@@ -165,10 +163,10 @@ def result(request):
 
         try:
             risk_prob = predict_username(user_data)
-            if risk_prob >= 0.66:
+            if risk_prob >= 0.5:
                 risk_level = "高風險"
-            elif risk_prob >= 0.33:
-                risk_level = "中風險"
+            elif risk_prob >= 0.25:
+                risk_level = "需觀察"
             else:
                 risk_level = "低風險"
         except Exception:
@@ -287,7 +285,7 @@ def suggest_report(request):
     if not risk_factors: risk_factors.append("目前數據顯示心理韌性尚屬穩定")
 
     ai_guidelines = []
-    if risk_level in ["高風險", "中風險"]:
+    if risk_level in ["高風險", "需觀察"]:
         ai_guidelines.append("建議安排專業心理諮商或使用 PHQ-9 量表進行自評。")
     if night_pct >= 50:
         ai_guidelines.append("嘗試建立規律作息，減少深夜使用社群媒體的時間。")
