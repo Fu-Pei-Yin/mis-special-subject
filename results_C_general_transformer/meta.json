@@ -1,0 +1,29 @@
+{
+  "model_name": "model_C_general_transformer",
+  "embed_model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "embed_dim": 384,
+  "max_posts": 32,
+  "architecture": "Transformer",
+  "logic_features": false,
+  "n_folds": 5,
+  "epochs": 30,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "batch_size": 4,
+  "seed": 42,
+  "early_stopping_patience": 5,
+  "num_features": [
+    "post_count",
+    "avg_post_len",
+    "bio_len",
+    "night_ratio",
+    "max_post_len",
+    "min_post_len"
+  ],
+  "avg_acc": 0.9224042159236576,
+  "std_acc": 0.02271084095385725,
+  "avg_f1": 0.8816266237318869,
+  "std_f1": 0.03009540800121066,
+  "avg_prec": 0.8913320463320463,
+  "avg_rec": 0.8762483130904183
+}
