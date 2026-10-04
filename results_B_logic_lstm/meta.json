@@ -1,0 +1,38 @@
+{
+  "model_name": "model_B_logic_bilstm",
+  "embed_model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "embed_dim": 384,
+  "max_posts": 32,
+  "architecture": "BiLSTM",
+  "lstm_hidden": 256,
+  "lstm_layers": 2,
+  "bidirectional": true,
+  "n_folds": 5,
+  "epochs": 30,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "batch_size": 4,
+  "seed": 42,
+  "early_stopping_patience": 5,
+  "num_features": [
+    "post_count",
+    "avg_post_len",
+    "bio_len",
+    "night_ratio",
+    "max_post_len",
+    "min_post_len"
+  ],
+  "logic_features": [
+    "neg_count",
+    "pos_count",
+    "logic_score",
+    "bio_flag",
+    "neg_ratio"
+  ],
+  "avg_acc": 0.9240279162512461,
+  "std_acc": 0.044159295891322496,
+  "avg_f1": 0.8878829111226043,
+  "std_f1": 0.05665442133621787,
+  "avg_prec": 0.8859647521275429,
+  "avg_rec": 0.8968960863697706
+}
