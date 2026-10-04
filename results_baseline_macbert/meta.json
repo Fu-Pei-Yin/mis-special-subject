@@ -1,0 +1,16 @@
+{
+  "model_name": "hfl/chinese-macbert-base",
+  "max_length": 512,
+  "batch_size": 8,
+  "epochs": 10,
+  "lr": 2e-05,
+  "n_folds": 5,
+  "seed": 42,
+  "avg_acc": 0.9190571143711722,
+  "std_acc": 0.02125593182335047,
+  "avg_f1": 0.8766744287216583,
+  "std_f1": 0.03272067339705589,
+  "avg_prec": 0.8750083337888217,
+  "avg_rec": 0.8813765182186234,
+  "avg_auc": 0.9561789149114265
+}
